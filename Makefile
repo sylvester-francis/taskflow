@@ -1,5 +1,5 @@
 # TaskFlow Management
-.PHONY: help build run run-dev stop clean logs shell test k8s-setup k8s-deploy k8s-status k8s-logs k8s-clean helm-install helm-upgrade helm-uninstall helm-test
+.PHONY: help build run run-dev stop clean logs shell test k8s-setup k8s-deploy k8s-status k8s-logs k8s-clean helm-install helm-upgrade helm-uninstall helm-test ci-test ci-validate
 
 # Default target
 help:
@@ -27,6 +27,10 @@ help:
 	@echo "  helm-upgrade - Upgrade Helm release"
 	@echo "  helm-uninstall - Uninstall Helm release"
 	@echo "  helm-test    - Test and validate Helm chart"
+	@echo ""
+	@echo "CI/CD commands:"
+	@echo "  ci-test      - Run all CI checks locally"
+	@echo "  ci-validate  - Validate CI/CD pipeline configuration"
 
 # Build the Docker image
 build:
@@ -113,3 +117,29 @@ helm-install-prod:
 
 helm-upgrade-prod:
 	helm upgrade taskflow ./helm/taskflow --namespace taskflow -f helm/taskflow/values-prod.yaml
+
+# CI/CD commands
+ci-test:
+	@echo "Running local CI checks..."
+	python3 -m pip install --upgrade pip
+	pip3 install -r requirements.txt
+	black --check app/ || (echo "Run 'black app/' to fix formatting" && exit 1)
+	isort --check-only app/ || (echo "Run 'isort app/' to fix imports" && exit 1)
+	flake8 app/
+	cd app && python3 -m pytest tests/ -v --cov=. --cov-report=term-missing
+	bandit -r app/ -ll || echo "Security warnings found"
+	safety check || echo "Dependency vulnerabilities found"
+
+ci-validate:
+	./validate-cicd.sh
+
+# Format code
+format:
+	black app/
+	isort app/
+
+# Security scan
+security-scan:
+	bandit -r app/ -f json -o security-report.json
+	safety check --json --output safety-report.json
+	echo "Security reports generated: security-report.json, safety-report.json"

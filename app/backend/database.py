@@ -1,8 +1,9 @@
+import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.backend.models import Base
 
-import os
+from app.backend.models import Base
 
 # Use data directory for persistence in containers
 db_path = os.getenv("DATABASE_PATH", "./taskflow.db")
@@ -13,8 +14,10 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def create_tables():
     Base.metadata.create_all(bind=engine)
+
 
 def get_db():
     db = SessionLocal()

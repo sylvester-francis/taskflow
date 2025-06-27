@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.backend.database import get_db, Base
+
+from app.backend.database import Base, get_db
 from app.main import app
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -13,6 +14,7 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 Base.metadata.create_all(bind=engine)
 
+
 def override_get_db():
     try:
         db = TestingSessionLocal()
@@ -20,29 +22,36 @@ def override_get_db():
     finally:
         db.close()
 
+
 app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
+
 
 def test_read_main():
     response = client.get("/")
     assert response.status_code == 200
     assert "TaskFlow" in response.text
 
+
 def test_register_user():
     response = client.post(
         "/api/register",
-        json={"username": "testuser", "email": "test@example.com", "password": "testpass123"}
+        json={
+            "username": "testuser",
+            "email": "test@example.com",
+            "password": "testpass123",
+        },
     )
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "testuser"
     assert data["email"] == "test@example.com"
 
+
 def test_login_user():
     response = client.post(
-        "/api/login",
-        data={"username": "testuser", "password": "testpass123"}
+        "/api/login", data={"username": "testuser", "password": "testpass123"}
     )
     assert response.status_code == 200
     data = response.json()

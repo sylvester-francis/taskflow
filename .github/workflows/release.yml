@@ -1,0 +1,259 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Create Release
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      release-id: ${{ steps.create-release.outputs.id }}
+      upload-url: ${{ steps.create-release.outputs.upload_url }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Generate changelog since last tag
+        LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        if [ -z "$LAST_TAG" ]; then
+          CHANGELOG=$(git log --pretty=format:"* %s (%h)" --reverse)
+        else
+          CHANGELOG=$(git log ${LAST_TAG}..HEAD --pretty=format:"* %s (%h)" --reverse)
+        fi
+        
+        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create-release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: TaskFlow ${{ github.ref_name }}
+        body: |
+          ## What's Changed
+          
+          ${{ steps.changelog.outputs.CHANGELOG }}
+          
+          ## Docker Images
+          
+          ```bash
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          ```
+          
+          ## Helm Chart
+          
+          ```bash
+          helm install taskflow oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/helm/taskflow --version ${{ github.ref_name }}
+          ```
+          
+          ## Deployment
+          
+          See [deployment documentation](README.md#deployment) for full instructions.
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.changelog.outputs.LAST_TAG }}...${{ github.ref_name }}
+        draft: false
+        prerelease: false
+
+  # Build and push release images
+  build-release:
+    name: Build Release Images
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+        format: spdx-json
+        output-file: sbom.spdx.json
+
+    - name: Upload SBOM to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload-url }}
+        asset_path: sbom.spdx.json
+        asset_name: sbom.spdx.json
+        asset_content_type: application/json
+
+  # Package and publish Helm chart
+  release-helm:
+    name: Release Helm Chart
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.12.0'
+
+    - name: Package Helm chart
+      run: |
+        # Update chart version to match release tag
+        VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
+        sed -i "s/version: .*/version: $VERSION/" helm/taskflow/Chart.yaml
+        sed -i "s/appVersion: .*/appVersion: \"$VERSION\"/" helm/taskflow/Chart.yaml
+        
+        # Package chart
+        helm package helm/taskflow/ --destination ./
+
+    - name: Upload Helm chart to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload-url }}
+        asset_path: ./taskflow-*.tgz
+        asset_name: taskflow-${{ github.ref_name }}.tgz
+        asset_content_type: application/gzip
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Push Helm chart to OCI registry
+      run: |
+        helm push taskflow-*.tgz oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/helm
+
+  # Deploy to production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-release, release-helm]
+    environment:
+      name: production
+      url: https://taskflow.example.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+
+    - name: Deploy to Production
+      env:
+        KUBECONFIG: kubeconfig
+      run: |
+        VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
+        
+        helm upgrade --install taskflow helm/taskflow/ \
+          --namespace taskflow \
+          --create-namespace \
+          --values helm/taskflow/values-prod.yaml \
+          --set image.tag=${{ github.ref_name }} \
+          --set image.pullPolicy=IfNotPresent \
+          --wait \
+          --timeout=15m
+
+    - name: Verify deployment
+      env:
+        KUBECONFIG: kubeconfig
+      run: |
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=taskflow -n taskflow --timeout=600s
+        kubectl get pods,svc,ingress -n taskflow
+
+    - name: Run post-deployment tests
+      env:
+        KUBECONFIG: kubeconfig
+      run: |
+        # Add comprehensive post-deployment validation
+        echo "Running post-deployment verification..."
+        kubectl port-forward svc/taskflow 8080:80 -n taskflow &
+        sleep 10
+        
+        # Health check
+        curl -f http://localhost:8080/docs
+        
+        # API availability check
+        curl -f http://localhost:8080/api/register -X POST \
+          -H "Content-Type: application/json" \
+          -d '{"username":"healthcheck","email":"test@example.com","password":"test123"}' || true
+
+    - name: Notify deployment success
+      uses: 8398a7/action-slack@v3
+      if: success()
+      with:
+        status: success
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        text: "🚀 TaskFlow ${{ github.ref_name }} successfully deployed to production!"
+
+    - name: Notify deployment failure
+      uses: 8398a7/action-slack@v3
+      if: failure()
+      with:
+        status: failure
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        text: "❌ TaskFlow ${{ github.ref_name }} deployment to production failed!"
