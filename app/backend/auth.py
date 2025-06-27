@@ -5,8 +5,8 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from .database import get_db
-from .models import User, TokenData
+from app.backend.database import get_db
+from app.backend.models import User, TokenData
 
 SECRET_KEY = "your-secret-key-change-in-production"
 ALGORITHM = "HS256"

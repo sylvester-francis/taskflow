@@ -3,9 +3,9 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from .database import get_db
-from .models import *
-from .auth import *
+from app.backend.database import get_db
+from app.backend.models import *
+from app.backend.auth import *
 
 router = APIRouter()
 

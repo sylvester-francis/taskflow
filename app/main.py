@@ -3,17 +3,17 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
-from backend.database import create_tables, get_db
-from backend.routes import router
-from backend.models import User, Task, TaskCreate, TaskUpdate
-from backend.auth import get_current_user, authenticate_user, create_access_token
+from app.backend.database import create_tables, get_db
+from app.backend.routes import router
+from app.backend.models import User, Task, TaskCreate, TaskUpdate
+from app.backend.auth import get_current_user, authenticate_user, create_access_token
 from datetime import timedelta
 import uvicorn
 
 app = FastAPI(title="TaskFlow", description="Secure Task Tracking Application")
 
-templates = Jinja2Templates(directory="frontend/templates")
-app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
+templates = Jinja2Templates(directory="app/frontend/templates")
+app.mount("/static", StaticFiles(directory="app/frontend/static"), name="static")
 
 app.include_router(router, prefix="/api", tags=["api"])
 
