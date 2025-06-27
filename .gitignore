@@ -192,3 +192,16 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Security scan reports
+bandit-report.json
+safety-report.json
+security-report.json
+safety-results.json
+semgrep-results.json
+trivy-results.json
+*.sarif
+trufflehog-results.json
+licenses.json
+reports/
+dependency-check-report.*

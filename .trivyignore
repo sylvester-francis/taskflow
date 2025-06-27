@@ -1,0 +1,21 @@
+# Trivy ignore file
+# This file contains vulnerabilities that have been reviewed and either:
+# 1. Fixed by upgrading dependencies
+# 2. Determined to be false positives
+# 3. Accepted risk with documented reasoning
+
+# CVE-2024-6345 - Fixed by upgrading setuptools to >=78.1.1
+# CVE-2025-47273 - Fixed by upgrading setuptools to >=78.1.1
+
+# Development dependencies that don't affect production
+# These are only used during build/test and not in runtime containers
+# CVE-XXXX-XXXXX
+
+# Base image vulnerabilities that are patched
+# (Add specific CVEs if base Python image has known issues that are addressed)
+
+# Example format for documenting accepted risks:
+# CVE-2024-XXXXX
+# Reason: This vulnerability affects feature X which is not used in our application
+# Reviewed: 2024-XX-XX by Security Team
+# Mitigation: Additional controls Y and Z are in place

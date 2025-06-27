@@ -1,0 +1,24 @@
+# TruffleHog Configuration
+# See: https://github.com/trufflesecurity/trufflehog
+
+# Paths to exclude from scanning
+exclude_paths:
+  - "venv/"
+  - ".venv/"
+  - "node_modules/"
+  - "__pycache__/"
+  - ".pytest_cache/"
+  - ".git/"
+  - "*.log"
+  - "reports/"
+  - "htmlcov/"
+
+# Detectors to disable (if needed)
+# exclude_detectors:
+#   - "example_detector"
+
+# Only scan for verified secrets (reduces false positives)
+only_verified: true
+
+# Output format
+# json: true
