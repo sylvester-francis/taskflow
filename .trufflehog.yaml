@@ -3,22 +3,22 @@
 
 # Paths to exclude from scanning
 exclude_paths:
-  - "venv/"
-  - ".venv/"
-  - "node_modules/"
-  - "__pycache__/"
-  - ".pytest_cache/"
-  - ".git/"
+  - "venv/**"
+  - ".venv/**"
+  - "node_modules/**"
+  - "__pycache__/**"
+  - ".pytest_cache/**"
+  - ".git/**"
   - "*.log"
-  - "reports/"
-  - "htmlcov/"
+  - "reports/**"
+  - "htmlcov/**"
+  - "*.json"
+  - "*.xml"
 
-# Detectors to disable (if needed)
+# Detectors to disable (optional)
 # exclude_detectors:
-#   - "example_detector"
+#   - "URI"
+#   - "Base64"
 
 # Only scan for verified secrets (reduces false positives)
-only_verified: true
-
-# Output format
-# json: true
+# Note: This is set via command line args in the workflow

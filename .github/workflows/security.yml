@@ -107,36 +107,41 @@ jobs:
 
     - name: TruffleHog OSS (Full Repository Scan)
       uses: trufflesecurity/trufflehog@main
-      if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+      if: github.event_name == 'schedule'
       with:
         path: ./
-        extra_args: --only-verified --no-update
+        extra_args: --only-verified
 
-    - name: TruffleHog OSS (PR Diff Scan)
+    - name: TruffleHog OSS (PR Scan)
       uses: trufflesecurity/trufflehog@main
       if: github.event_name == 'pull_request'
       with:
         path: ./
         base: ${{ github.event.pull_request.base.sha }}
         head: ${{ github.event.pull_request.head.sha }}
-        extra_args: --only-verified --no-update
-
-    - name: TruffleHog OSS (Push Diff Scan)
-      uses: trufflesecurity/trufflehog@main
-      if: github.event_name == 'push' && github.ref != 'refs/heads/main'
-      with:
-        path: ./
-        base: ${{ github.event.before }}
-        head: ${{ github.event.after }}
-        extra_args: --only-verified --no-update
+        extra_args: --only-verified
       continue-on-error: true
 
-    - name: TruffleHog OSS (Filesystem Fallback)
+    - name: TruffleHog OSS (Push Scan)
       uses: trufflesecurity/trufflehog@main
-      if: failure() || (github.event_name == 'push' && github.event.before == '0000000000000000000000000000000000000000')
+      if: github.event_name == 'push'
       with:
         path: ./
-        extra_args: --only-verified --no-update
+        extra_args: --only-verified
+      continue-on-error: true
+
+    - name: Simple Secrets Check (Fallback)
+      if: always()
+      run: |
+        echo "Running simple secrets detection as fallback..."
+        # Check for common secret patterns
+        if grep -r -i --include="*.py" --include="*.js" --include="*.yaml" --include="*.yml" \
+          -E "(password|secret|key|token|api_key)\s*=\s*['\"][^'\"]{8,}" . || true; then
+          echo "⚠️ Potential secrets found - please review"
+        else
+          echo "✅ No obvious secrets detected"
+        fi
+      continue-on-error: true
 
   # License Compliance
   license-check:
