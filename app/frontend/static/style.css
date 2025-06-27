@@ -1,0 +1,32 @@
+/* Custom styles for TaskFlow */
+.htmx-indicator{
+    opacity: 0;
+    transition: opacity 500ms ease-in;
+}
+.htmx-request .htmx-indicator{
+    opacity: 1;
+}
+.htmx-request.htmx-indicator{
+    opacity: 1;
+}
+
+.task-item:hover {
+    background-color: #f8f9fa;
+}
+
+.priority-indicator {
+    width: 4px;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

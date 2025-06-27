@@ -1,0 +1,38 @@
+<div class="card mb-2 priority-{{ task.priority }}" id="task-{{ task.id }}">
+    <div class="card-body py-2">
+        <div class="row align-items-center">
+            <div class="col-1">
+                <input type="checkbox" 
+                       class="form-check-input" 
+                       {% if task.completed %}checked{% endif %}
+                       hx-put="/htmx/tasks/{{ task.id }}/toggle"
+                       hx-target="#task-{{ task.id }}"
+                       hx-swap="outerHTML">
+            </div>
+            <div class="col-8">
+                <h6 class="mb-1 {% if task.completed %}task-completed{% endif %}">
+                    {{ task.title }}
+                </h6>
+                {% if task.description %}
+                    <small class="text-muted {% if task.completed %}task-completed{% endif %}">
+                        {{ task.description }}
+                    </small>
+                {% endif %}
+            </div>
+            <div class="col-2">
+                <span class="badge bg-{% if task.priority == 'high' %}danger{% elif task.priority == 'medium' %}warning{% else %}success{% endif %}">
+                    {{ task.priority.title() }}
+                </span>
+            </div>
+            <div class="col-1">
+                <button class="btn btn-outline-danger btn-sm" 
+                        hx-delete="/htmx/tasks/{{ task.id }}"
+                        hx-target="#task-{{ task.id }}"
+                        hx-swap="outerHTML"
+                        hx-confirm="Are you sure you want to delete this task?">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

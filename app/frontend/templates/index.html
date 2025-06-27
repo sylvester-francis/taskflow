@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="text-center mb-5">
+            <h1 class="display-4">
+                <i class="fas fa-tasks text-primary"></i> TaskFlow
+            </h1>
+            <p class="lead">Secure Task Tracking Made Simple</p>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-shield-alt text-success fa-3x mb-3"></i>
+                        <h5 class="card-title">Secure</h5>
+                        <p class="card-text">Your tasks are protected with enterprise-grade security and authentication.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-rocket text-primary fa-3x mb-3"></i>
+                        <h5 class="card-title">Fast</h5>
+                        <p class="card-text">Lightning-fast task management with real-time updates using HTMX.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <a href="/register" class="btn btn-primary btn-lg me-3">
+                <i class="fas fa-user-plus"></i> Get Started
+            </a>
+            <a href="/login" class="btn btn-outline-primary btn-lg">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
