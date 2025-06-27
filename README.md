@@ -7,6 +7,7 @@ A secure, containerized task-tracking application built with FastAPI, HTMX, and 
 ### Local Development
 
 1. **Clone and setup virtual environment:**
+
    ```bash
    git clone <repo-url>
    cd taskflow
@@ -16,13 +17,14 @@ A secure, containerized task-tracking application built with FastAPI, HTMX, and 
    ```
 
 2. **Run the application:**
+
    ```bash
    uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
 3. **Access the application:**
-   - Main app: http://localhost:8000
-   - API docs: http://localhost:8000/docs
+   - Main app: <http://localhost:8000>
+   - API docs: <http://localhost:8000/docs>
 
 ### Docker Development
 
@@ -31,6 +33,7 @@ A secure, containerized task-tracking application built with FastAPI, HTMX, and 
    - Docker Compose v2+
 
 2. **Development mode (with hot reload):**
+
    ```bash
    make run-dev
    # OR
@@ -38,6 +41,7 @@ A secure, containerized task-tracking application built with FastAPI, HTMX, and 
    ```
 
 3. **Production mode:**
+
    ```bash
    make build
    make run
@@ -47,6 +51,7 @@ A secure, containerized task-tracking application built with FastAPI, HTMX, and 
    ```
 
 4. **Available Make commands:**
+
    ```bash
    make help          # Show all available commands
    make build         # Build Docker image
@@ -63,6 +68,7 @@ A secure, containerized task-tracking application built with FastAPI, HTMX, and 
 ## 🏗️ Architecture
 
 ### Application Structure
+
 ```
 taskflow/
 ├── app/
@@ -83,6 +89,7 @@ taskflow/
 ```
 
 ### Security Features
+
 - **Authentication**: JWT tokens with bcrypt password hashing
 - **Container Security**: Non-root user, minimal attack surface
 - **Input Validation**: Pydantic models for request validation
@@ -91,12 +98,14 @@ taskflow/
 ## 🐳 Container Features
 
 ### Multi-stage Dockerfile
+
 - **Builder stage**: Installs dependencies and builds application
 - **Production stage**: Minimal runtime image with security hardening
 - **Non-root user**: Application runs as `taskflow` user
 - **Health checks**: Built-in container health monitoring
 
 ### Docker Compose Services
+
 - **taskflow-app**: Main application container
 - **taskflow-backup**: Automated database backup service
 - **Volume persistence**: Data stored in Docker volumes
@@ -105,11 +114,13 @@ taskflow/
 ## 🔧 Configuration
 
 ### Environment Variables
+
 - `DATABASE_PATH`: Path to SQLite database file (default: `./taskflow.db`)
 - `PYTHONPATH`: Python module search path (default: `/app`)
 - `ENVIRONMENT`: Application environment (development/production)
 
 ### Database
+
 - **Development**: SQLite with local file storage
 - **Production**: SQLite with volume-mounted persistence
 - **Backup**: Automated daily backups with 7-day retention
@@ -126,7 +137,8 @@ make test
 
 ## 📝 Development Notes
 
-### Phase 1 Complete ✅
+### Phase 2 Complete ✅
+
 - FastAPI backend with CRUD operations
 - HTMX frontend with Bootstrap styling
 - JWT authentication system
@@ -134,6 +146,7 @@ make test
 - Containerized deployment ready
 
 ### Next Phases
+
 - [ ] Kubernetes deployment (K3s/Minikube)
 - [ ] Helm charts for environment management
 - [ ] CI/CD pipeline with GitHub Actions
