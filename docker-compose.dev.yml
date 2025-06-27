@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  taskflow-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for development
+    container_name: taskflow-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_PATH=/app/data/taskflow.db
+      - PYTHONPATH=/app
+      - ENVIRONMENT=development
+    volumes:
+      - taskflow-dev-data:/app/data
+      - ./app:/app/app  # Mount source for hot reload
+      - ./requirements.txt:/app/requirements.txt
+    command: >
+      sh -c "
+        pip install -r requirements.txt &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - taskflow-dev-network
+    labels:
+      - "com.taskflow.service=api"
+      - "com.taskflow.environment=development"
+
+volumes:
+  taskflow-dev-data:
+    driver: local
+
+networks:
+  taskflow-dev-network:
+    driver: bridge

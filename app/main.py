@@ -1,11 +1,11 @@
 from fastapi import FastAPI, Request, Depends, HTTPException, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from app.backend.database import create_tables, get_db
 from app.backend.routes import router
-from app.backend.models import User, Task, TaskCreate, TaskUpdate
+from app.backend.models import User, Task
 from app.backend.auth import get_current_user, authenticate_user, create_access_token
 from datetime import timedelta
 import uvicorn

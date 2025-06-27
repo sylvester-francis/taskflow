@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.pytest_cache
+*.cover
+*.py,cover
+.hypothesis
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.db
+*.sqlite
+*.sqlite3
+app/taskflow.db
+
+# Documentation
+README.md
+project-journal.md
+LICENSE
+
+# CI/CD
+.github/
+.circleci/
+
+# Kubernetes
+k8s/
+helm/

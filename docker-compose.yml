@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  taskflow-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: taskflow-app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_PATH=/app/data/taskflow.db
+      - PYTHONPATH=/app
+    volumes:
+      - taskflow-data:/app/data
+      # Mount source code for development (comment out for production)
+      - ./app:/app/app:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - taskflow-network
+    labels:
+      - "com.taskflow.service=api"
+      - "com.taskflow.environment=development"
+
+  # Database backup service (optional)
+  taskflow-backup:
+    image: alpine:latest
+    container_name: taskflow-backup
+    volumes:
+      - taskflow-data:/data
+      - ./backups:/backups
+    command: >
+      sh -c "
+        while true; do
+          sleep 86400
+          cp /data/taskflow.db /backups/taskflow-backup-$$(date +%Y%m%d_%H%M%S).db
+          find /backups -name 'taskflow-backup-*.db' -mtime +7 -delete
+        done
+      "
+    depends_on:
+      - taskflow-app
+    networks:
+      - taskflow-network
+    labels:
+      - "com.taskflow.service=backup"
+
+volumes:
+  taskflow-data:
+    driver: local
+    labels:
+      - "com.taskflow.volume=database"
+
+networks:
+  taskflow-network:
+    driver: bridge
+    labels:
+      - "com.taskflow.network=main"
