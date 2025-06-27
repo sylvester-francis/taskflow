@@ -1,0 +1,167 @@
+# Default values for taskflow
+# This is a YAML-formatted file.
+# Declare variables to be substituted into your templates.
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: "local-storage"
+
+# Application configuration
+image:
+  repository: taskflow
+  tag: "latest"
+  pullPolicy: Never  # For local development
+  # pullPolicy: IfNotPresent  # For production
+
+# Deployment configuration
+replicaCount: 2
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+    - ALL
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: "web"
+  hosts:
+    - host: taskflow.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Persistent storage
+persistence:
+  enabled: true
+  storageClass: "local-storage"
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  hostPath: /tmp/taskflow-data
+
+# Application configuration
+config:
+  databasePath: "/app/data/taskflow.db"
+  pythonPath: "/app"
+  environment: "production"
+  debug: false
+
+# Secrets configuration (base64 encoded)
+secrets:
+  secretKey: "eW91ci1zZWNyZXQta2V5LWNoYW5nZS1pbi1wcm9kdWN0aW9u"
+  jwtSecret: "and0LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbnM="
+
+# Health checks
+healthCheck:
+  enabled: true
+  path: "/docs"
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessCheck:
+  enabled: true
+  path: "/docs"
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Environment-specific overrides
+environments:
+  development:
+    replicaCount: 1
+    config:
+      environment: "development"
+      debug: true
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+        
+  staging:
+    replicaCount: 2
+    config:
+      environment: "staging"
+      debug: false
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+        
+  production:
+    replicaCount: 3
+    config:
+      environment: "production"
+      debug: false
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    autoscaling:
+      enabled: true

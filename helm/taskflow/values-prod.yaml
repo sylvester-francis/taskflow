@@ -1,0 +1,45 @@
+# Production environment values
+replicaCount: 3
+
+image:
+  tag: "v1.0.0"
+  pullPolicy: IfNotPresent
+
+config:
+  environment: "production"
+  debug: false
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+ingress:
+  hosts:
+    - host: taskflow.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: taskflow-tls
+      hosts:
+        - taskflow.example.com
+
+persistence:
+  hostPath: /var/lib/taskflow-data
+  size: 5Gi
+
+# Production secrets (should be managed externally)
+secrets:
+  secretKey: "cHJvZHVjdGlvbi1zZWNyZXQta2V5LWNoYW5nZS1tZQ=="
+  jwtSecret: "cHJvZC1qd3Qtc2VjcmV0LWtleS1mb3ItdG9rZW5z"

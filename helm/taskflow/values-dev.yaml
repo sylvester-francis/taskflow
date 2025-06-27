@@ -1,0 +1,31 @@
+# Development environment values
+replicaCount: 1
+
+image:
+  tag: "dev"
+  pullPolicy: Never
+
+config:
+  environment: "development"
+  debug: true
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+autoscaling:
+  enabled: false
+
+ingress:
+  hosts:
+    - host: taskflow-dev.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+persistence:
+  hostPath: /tmp/taskflow-dev-data

@@ -1,0 +1,27 @@
+apiVersion: v2
+name: taskflow
+description: A secure, scalable task-tracking application with FastAPI and HTMX
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+home: https://github.com/yourusername/taskflow
+sources:
+  - https://github.com/yourusername/taskflow
+
+maintainers:
+  - name: TaskFlow Team
+    email: taskflow@example.com
+    url: https://taskflow.example.com
+
+keywords:
+  - taskflow
+  - fastapi
+  - htmx
+  - task-management
+  - devops
+  - kubernetes
+
+annotations:
+  category: Application Framework
+  licenses: MIT

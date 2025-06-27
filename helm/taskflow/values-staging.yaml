@@ -1,0 +1,31 @@
+# Staging environment values
+replicaCount: 2
+
+image:
+  tag: "staging"
+  pullPolicy: IfNotPresent
+
+config:
+  environment: "staging"
+  debug: false
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+
+ingress:
+  hosts:
+    - host: taskflow-staging.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+persistence:
+  hostPath: /tmp/taskflow-staging-data

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "taskflow.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "taskflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  DATABASE_PATH: {{ .Values.config.databasePath | quote }}
+  PYTHONPATH: {{ .Values.config.pythonPath | quote }}
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  DEBUG: {{ .Values.config.debug | quote }}
+  APP_NAME: "TaskFlow"
+  APP_VERSION: {{ .Chart.AppVersion | quote }}

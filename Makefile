@@ -1,5 +1,5 @@
 # TaskFlow Management
-.PHONY: help build run run-dev stop clean logs shell test k8s-setup k8s-deploy k8s-status k8s-logs k8s-clean
+.PHONY: help build run run-dev stop clean logs shell test k8s-setup k8s-deploy k8s-status k8s-logs k8s-clean helm-install helm-upgrade helm-uninstall helm-test
 
 # Default target
 help:
@@ -21,6 +21,12 @@ help:
 	@echo "  k8s-status   - Show Kubernetes deployment status"
 	@echo "  k8s-logs     - Show Kubernetes application logs"
 	@echo "  k8s-clean    - Delete K3s cluster"
+	@echo ""
+	@echo "Helm commands:"
+	@echo "  helm-install - Install with Helm (dev environment)"
+	@echo "  helm-upgrade - Upgrade Helm release"
+	@echo "  helm-uninstall - Uninstall Helm release"
+	@echo "  helm-test    - Test and validate Helm chart"
 
 # Build the Docker image
 build:
@@ -81,3 +87,29 @@ k8s-clean:
 # Port forward for local access
 k8s-port-forward:
 	kubectl port-forward service/taskflow-service 8000:80 -n taskflow
+
+# Helm commands
+helm-install:
+	docker build -t taskflow:latest .
+	k3d image import taskflow:latest --cluster taskflow
+	helm install taskflow ./helm/taskflow --namespace taskflow --create-namespace -f helm/taskflow/values-dev.yaml
+
+helm-upgrade:
+	docker build -t taskflow:latest .
+	k3d image import taskflow:latest --cluster taskflow
+	helm upgrade taskflow ./helm/taskflow --namespace taskflow -f helm/taskflow/values-dev.yaml
+
+helm-uninstall:
+	helm uninstall taskflow --namespace taskflow
+
+helm-test:
+	helm lint ./helm/taskflow
+	helm template taskflow ./helm/taskflow -f helm/taskflow/values-dev.yaml > /tmp/helm-output.yaml
+	echo "✅ Helm chart validation complete. Output saved to /tmp/helm-output.yaml"
+
+# Helm production deployment
+helm-install-prod:
+	helm install taskflow ./helm/taskflow --namespace taskflow --create-namespace -f helm/taskflow/values-prod.yaml
+
+helm-upgrade-prod:
+	helm upgrade taskflow ./helm/taskflow --namespace taskflow -f helm/taskflow/values-prod.yaml
