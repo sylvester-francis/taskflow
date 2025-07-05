@@ -2,8 +2,6 @@
 Unit tests for API routes
 """
 
-import pytest
-
 from app.backend.auth import create_access_token, get_password_hash
 from app.backend.models import Task, User
 

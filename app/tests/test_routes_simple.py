@@ -7,31 +7,33 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.backend.auth import create_access_token, get_password_hash
 from app.backend.database import Base, get_db
-from app.backend.models import Task, User
 from app.main import app
 
 
-@pytest.fixture(scope="function") 
+@pytest.fixture(scope="function")
 def test_client():
     """Create a test client with isolated database"""
     # Create a fresh in-memory database for each test
-    test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    test_engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}
+    )
     Base.metadata.create_all(bind=test_engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-    
+    TestingSessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, bind=test_engine
+    )
+
     def override_get_db():
         session = TestingSessionLocal()
         try:
             yield session
         finally:
             session.close()
-    
+
     # Override the dependency
     original_dependency = app.dependency_overrides.get(get_db)
     app.dependency_overrides[get_db] = override_get_db
-    
+
     try:
         with TestClient(app) as client:
             yield client
@@ -47,12 +49,12 @@ def test_register_user_success(test_client):
     """Test successful user registration"""
     user_data = {
         "username": "newuser",
-        "email": "newuser@example.com", 
+        "email": "newuser@example.com",
         "password": "newpassword123",
     }
-    
+
     response = test_client.post("/api/register", json=user_data)
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "newuser"
@@ -70,15 +72,15 @@ def test_register_duplicate_user(test_client):
         "email": "test@example.com",
         "password": "password123",
     }
-    
+
     # First registration should succeed
     response1 = test_client.post("/api/register", json=user_data)
     assert response1.status_code == 200
-    
+
     # Second registration with same username should fail
     user_data2 = {
         "username": "testuser",  # Same username
-        "email": "different@example.com", 
+        "email": "different@example.com",
         "password": "password123",
     }
     response2 = test_client.post("/api/register", json=user_data2)
@@ -96,11 +98,11 @@ def test_login_success(test_client):
     }
     register_response = test_client.post("/api/register", json=user_data)
     assert register_response.status_code == 200
-    
+
     # Now try to login
     login_data = {"username": "testuser", "password": "testpassword"}
     response = test_client.post("/api/login", data=login_data)
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
@@ -113,15 +115,15 @@ def test_login_wrong_password(test_client):
     # First register a user
     user_data = {
         "username": "testuser",
-        "email": "test@example.com", 
+        "email": "test@example.com",
         "password": "testpassword",
     }
     register_response = test_client.post("/api/register", json=user_data)
     assert register_response.status_code == 200
-    
+
     # Try to login with wrong password
     login_data = {"username": "testuser", "password": "wrongpassword"}
     response = test_client.post("/api/login", data=login_data)
-    
+
     assert response.status_code == 401
     assert "Incorrect username or password" in response.json()["detail"]

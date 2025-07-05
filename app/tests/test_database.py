@@ -99,14 +99,14 @@ class TestDatabase:
     def test_foreign_key_constraint(self):
         """Test foreign key relationship between User and Task"""
         engine = create_engine("sqlite:///:memory:")
-        
+
         # Enable foreign key constraints for SQLite
         @event.listens_for(engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.close()
-        
+
         Base.metadata.create_all(bind=engine)
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
