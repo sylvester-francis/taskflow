@@ -1,4 +1,6 @@
+import os
 from datetime import timedelta
+from pathlib import Path
 
 import uvicorn
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
@@ -18,8 +20,18 @@ from app.backend.routes import router
 
 app = FastAPI(title="TaskFlow", description="Secure Task Tracking Application")
 
-templates = Jinja2Templates(directory="app/frontend/templates")
-app.mount("/static", StaticFiles(directory="app/frontend/static"), name="static")
+# Get the directory where this main.py file is located
+BASE_DIR = Path(__file__).parent
+
+# Set up template and static directories
+templates_dir = BASE_DIR / "frontend" / "templates"
+static_dir = BASE_DIR / "frontend" / "static"
+
+templates = Jinja2Templates(directory=str(templates_dir))
+
+# Only mount static files if the directory exists
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 app.include_router(router, prefix="/api", tags=["api"])
 
