@@ -1,30 +1,17 @@
-# 🚀 TaskFlow - Modern Task Management Application
+# TaskFlow - Modern Task Management Application
 
-<div align="center">
+[![CI/CD Pipeline](https://img.shields.io/badge/CI/CD-Automated-00C853?style=flat-square&logo=github-actions&logoColor=white)](https://github.com/sylvester-francis/taskflow/actions)
+[![Coverage](https://img.shields.io/badge/Coverage-95%25-4CAF50?style=flat-square&logo=codecov&logoColor=white)](https://codecov.io/gh/sylvester-francis/taskflow)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square&logo=open-source-initiative&logoColor=white)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3110/)
 
-**✨ Built with passion by [Sylvester Francis](https://github.com/sylvester-francis) ✨**  
-*Where productivity meets modern web technology*
+A secure, production-ready task management application built with modern web technologies and enterprise-grade DevOps practices. TaskFlow demonstrates full-stack development patterns, containerization, Kubernetes deployment, and comprehensive CI/CD automation.
 
-[![CI/CD Pipeline](https://img.shields.io/badge/CI/CD-Automated-00C853?style=for-the-badge&logo=github-actions&logoColor=white)](https://github.com/sylvester-francis/taskflow/actions)
-[![Coverage](https://img.shields.io/badge/Coverage-95%25-4CAF50?style=for-the-badge&logo=codecov&logoColor=white)](https://codecov.io/gh/sylvester-francis/taskflow)
-[![License: MIT](https://img.shields.io/badge/License-MIT-FFD700?style=for-the-badge&logo=open-source-initiative&logoColor=black)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3110/)
+**Author:** [Sylvester Francis](https://github.com/sylvester-francis) | [LinkedIn](https://www.linkedin.com/in/sylvesterranjith/) | [YouTube](https://www.youtube.com/@TechWithSyl)
 
-[![LinkedIn](https://img.shields.io/badge/Connect_with_Creator-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/sylvesterranjith/)
-[![YouTube](https://img.shields.io/badge/TechWithSyl-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@TechWithSyl)
-[![Topmate](https://img.shields.io/badge/Book_a_Call-00C853?style=for-the-badge&logo=calendar&logoColor=white)](https://topmate.io/sylvester_francis)
+## Overview
 
-</div>
-
----
-
-## 🌟 What Makes TaskFlow Special
-
-> *A secure, production-ready task management application that actually makes your life easier*
-
-TaskFlow isn't just another to-do app—it's a **modern web application showcase** built with enterprise-grade DevOps practices. Whether you're learning full-stack development or need a robust task management solution, TaskFlow demonstrates real-world implementation of cutting-edge technologies.
-
-**💡 Fun Fact:** This entire application was architected to demonstrate modern development practices while solving a real problem—effective task management with bulletproof security! 🛡️
+TaskFlow is a modern web application that showcases contemporary development practices while providing a practical task management solution. Built with security, scalability, and maintainability in mind, it serves as both a functional application and a reference implementation for modern web development.
 
 ## 📋 Table of Contents
 
@@ -41,55 +28,44 @@ TaskFlow isn't just another to-do app—it's a **modern web application showcase
 - [Contributing](#-contributing)
 - [License](#-license)
 
-## 🎯 My Superpowers (aka Features)
+## Features
 
-<table>
-<tr>
-<td width="50%">
+### Core Functionality
 
-### 🎯 **Core Magic**
+- **Task Management**: Complete CRUD operations for tasks with priority levels
+- **User Authentication**: Secure JWT-based authentication with bcrypt password hashing
+- **Real-time UI**: Dynamic updates using HTMX without page refreshes
+- **Responsive Design**: Mobile-friendly interface built with Bootstrap 5
+- **Task Priorities**: Low, Medium, High priority classification
+- **Status Tracking**: Mark tasks as completed/incomplete
 
-- ✅ **Smart Task Management** - CRUD operations that just work
-- 🔐 **Fort Knox Security** - JWT + bcrypt keeping bad actors out
-- ⚡ **Lightning Fast UI** - HTMX making everything smooth
-- 📱 **Mobile First** - Bootstrap 5 responsive design
-- 🎨 **Priority Wizardry** - Low, Medium, High with visual flair
-- ✨ **Status Tracking** - Complete/incomplete with satisfying clicks
+### Security
 
-### 🛡️ **Security Arsenal**
+- **JWT Authentication**: Stateless, secure token-based authentication
+- **Password Security**: bcrypt hashing with salt for password storage
+- **Input Validation**: Comprehensive validation using Pydantic models
+- **SQL Injection Protection**: SQLAlchemy ORM prevents SQL injection attacks
+- **XSS Protection**: Template escaping and secure headers
+- **CSRF Protection**: Form token validation for state-changing operations
 
-- 🔑 **JWT Authentication** - Stateless and bulletproof
-- 🔒 **Password Fortress** - bcrypt + salt = uncrackable
-- ✅ **Input Validation** - Pydantic keeping data clean
-- 🚫 **SQL Injection Proof** - SQLAlchemy ORM protection
-- 🛡️ **XSS Shield** - Template escaping + secure headers
-- 🔐 **CSRF Protection** - Form tokens for extra safety
+### Enterprise Features
 
-</td>
-<td width="50%">
+- **Health Checks**: Built-in health monitoring endpoints
+- **API Documentation**: Auto-generated OpenAPI/Swagger documentation
+- **Database Migrations**: SQLAlchemy-based schema management
+- **Structured Logging**: Comprehensive logging for debugging and monitoring
+- **Error Handling**: Graceful error handling with user-friendly messages
+- **Performance Optimization**: Efficient queries and caching strategies
 
-### 🏗️ **Enterprise Grade**
+### Development
 
-- 💓 **Health Monitoring** - Know your app's pulse
-- 📚 **Auto Documentation** - OpenAPI/Swagger magic
-- 🔄 **Smart Migrations** - SQLAlchemy schema evolution
-- 📝 **Structured Logging** - Debug like a pro
-- 🎯 **Graceful Errors** - User-friendly when things go wrong
-- 🚀 **Performance Tuned** - Efficient queries + caching
+- **95%+ Test Coverage**: Comprehensive test suite with pytest
+- **Docker Support**: Full containerization with multi-stage builds
+- **Kubernetes Ready**: Production-ready Kubernetes manifests
+- **CI/CD Pipeline**: Automated testing, building, and deployment
+- **Development Tools**: Taskfile for streamlined development workflow
 
-### 🎪 **Developer Experience**
-
-- 🧪 **95%+ Test Coverage** - pytest powered confidence
-- 🐳 **Docker Ready** - Containerized perfection
-- ☸️ **Kubernetes Native** - Scale to infinity (almost!)
-- 🔄 **CI/CD Automated** - GitHub Actions pipeline
-- 📋 **Task Runner** - Taskfile.yml convenience
-
-</td>
-</tr>
-</table>
-
-## 🏛️ Architecture
+## Architecture
 
 TaskFlow follows a **modern, layered architecture** designed for scalability and maintainability:
 
@@ -135,116 +111,124 @@ graph TB
 
 ### 🔄 **Request Flow**
 
-1. **User Interaction** → HTMX captures form submissions and interactions
-2. **HTTP Request** → Sent to FastAPI backend with authentication headers
-3. **Authentication** → JWT token validation and user identification
-4. **Business Logic** → Task operations with validation and authorization
-5. **Database** → SQLAlchemy ORM handles database operations
-6. **Response** → HTML fragments returned for HTMX to update the DOM
+```mermaid
+sequenceDiagram
+    participant User as 👤 User
+    participant Frontend as 🎨 HTMX Frontend
+    participant FastAPI as ⚡ FastAPI Backend
+    participant Auth as 🔐 JWT Auth
+    participant DB as 💾 SQLite DB
+    
+    User->>Frontend: 1. Interact with form/button
+    Frontend->>FastAPI: 2. HTTP Request + JWT Token
+    FastAPI->>Auth: 3. Validate JWT Token
+    Auth-->>FastAPI: 4. User Identity Confirmed
+    FastAPI->>FastAPI: 5. Business Logic & Validation
+    FastAPI->>DB: 6. Database Operations (CRUD)
+    DB-->>FastAPI: 7. Data Response
+    FastAPI-->>Frontend: 8. HTML Fragment Response
+    Frontend->>User: 9. DOM Update (No Page Refresh!)
+    
+    Note over User,DB: 🚀 Lightning fast, secure, and smooth!
+```
 
-## 🛠️ Tech Arsenal
+## Technology Stack
 
-<div align="center">
+### Backend
 
-### Backend Powerhouse
+- **FastAPI** - Modern, fast Python web framework
+- **SQLAlchemy** - Python SQL toolkit and ORM
+- **SQLite** - Lightweight, serverless database
+- **Pydantic** - Data validation using Python type hints
+- **python-jose** - JWT token handling
+- **passlib** - Password hashing with bcrypt
 
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
-![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white)
-![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=json-web-tokens&logoColor=white)
-![bcrypt](https://img.shields.io/badge/bcrypt-326CE5?style=for-the-badge&logo=security&logoColor=white)
+### Frontend
 
-### Frontend Magic
+- **HTMX** - Modern HTML-over-the-wire approach
+- **Bootstrap 5** - CSS framework for responsive design
+- **Jinja2** - Template engine for server-side rendering
 
-![HTMX](https://img.shields.io/badge/HTMX-36C?style=for-the-badge&logo=htmx&logoColor=white)
-![Bootstrap](https://img.shields.io/badge/Bootstrap_5-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)
-![Jinja2](https://img.shields.io/badge/Jinja2-B41717?style=for-the-badge&logo=jinja&logoColor=white)
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+### DevOps & Infrastructure
 
-### DevOps & Cloud Mastery
-
-![Docker](https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
-![Helm](https://img.shields.io/badge/Helm-0F1689?style=for-the-badge&logo=helm&logoColor=white)
-![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)
-![Ansible](https://img.shields.io/badge/Ansible-EE0000?style=for-the-badge&logo=ansible&logoColor=white)
+- **Docker** - Containerization with multi-stage builds
+- **Kubernetes** - Container orchestration and deployment
+- **Helm** - Kubernetes package manager
+- **GitHub Actions** - CI/CD automation
+- **Ansible** - Infrastructure as Code automation
 
 ### Development Tools
 
-![pytest](https://img.shields.io/badge/pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
-![Black](https://img.shields.io/badge/Black-000000?style=for-the-badge&logo=python&logoColor=white)
-![Taskfile](https://img.shields.io/badge/Taskfile-29BEB0?style=for-the-badge&logo=task&logoColor=white)
-![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
-![VS Code](https://img.shields.io/badge/VS_Code-007ACC?style=for-the-badge&logo=visual-studio-code&logoColor=white)
+- **pytest** - Testing framework with fixtures and mocking
+- **Black** - Code formatting
+- **isort** - Import sorting
+- **flake8** - Linting
+- **Taskfile** - Task runner for development workflows
 
-</div>
+## Quick Start
 
-## 🚀 Quick Start (Let's Get You Running!)
+### Prerequisites
 
-### **Prerequisites** 📋
+- Python 3.11 or higher
+- Git
+- Docker (optional, for containerized development)
 
-- Python 3.11+ (because we like the latest and greatest!)
-- Git (for cloning this masterpiece)
-- Docker (optional, but recommended for the full experience)
-
-### **🎯 Option 1: The Classic Way**
+### Option 1: Local Development
 
 ```bash
-# Clone this awesome project
+# Clone the repository
 git clone https://github.com/sylvester-francis/taskflow.git
 cd taskflow
 
-# Create your Python playground
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows folks: venv\Scripts\activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install the magic
+# Install dependencies
 pip install -r requirements.txt
 
-# Fire up the engines! 🚀
+# Start the development server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### **🐳 Option 2: The Docker Way (Recommended)**
+### Option 2: Docker
 
 ```bash
-# One command to rule them all
+# Using Docker Compose
 docker-compose up --build
 
-# Or if you prefer the manual approach
+# Or build and run manually
 docker build -t taskflow .
 docker run -p 8000:8000 taskflow
 ```
 
-### **⚡ Option 3: The Pro Way (with Taskfile)**
+### Option 3: Using Taskfile
 
 ```bash
-# Ultimate developer experience
-task setup    # Sets up everything
-task dev      # Runs the app
-task test     # Runs the tests
-task build    # Builds for production
+# Setup development environment
+task setup
+
+# Run the application
+task dev
+
+# Run tests
+task test
+
+# Build for production
+task build
 ```
 
-### **🎊 Your App is Ready!**
+### Access the Application
 
-<div align="center">
+- **Main Application**: <http://localhost:8000>
+- **API Documentation**: <http://localhost:8000/docs>
+- **Health Check**: <http://localhost:8000/api/health>
 
-| 🌟 **Main App** | 📚 **API Docs** | 💓 **Health Check** |
-|:---:|:---:|:---:|
-| [localhost:8000](http://localhost:8000) | [localhost:8000/docs](http://localhost:8000/docs) | [localhost:8000/api/health](http://localhost:8000/api/health) |
+### Getting Started
 
-</div>
-
-### **👤 Create Your First Account**
-
-1. 🌐 Navigate to [localhost:8000/register](http://localhost:8000/register)
-2. ✍️ Create your account (username, email, password)
-3. 🎯 Login and start conquering your tasks!
-
-**🎉 Boom! You're ready to be productive!**
+1. Navigate to <http://localhost:8000/register>
+2. Create a new account with username, email, and password
+3. Login and start managing your tasks
 
 ## 💻 Development
 
@@ -275,35 +259,59 @@ task build
 task k8s:deploy
 ```
 
-### **Project Structure**
+### Project Structure
 
 ```
 taskflow/
-├── app/                     # Application source code
-│   ├── backend/            # Backend logic
-│   │   ├── auth.py        # Authentication & JWT handling
-│   │   ├── database.py    # Database configuration
-│   │   ├── models.py      # SQLAlchemy models & Pydantic schemas
-│   │   └── routes.py      # API route definitions
-│   ├── frontend/          # Frontend templates and static files
-│   │   ├── templates/     # Jinja2 HTML templates
-│   │   └── static/        # CSS, JS, and image assets
-│   ├── tests/            # Comprehensive test suite
-│   │   ├── conftest.py   # Pytest configuration and fixtures
-│   │   ├── test_auth.py  # Authentication tests
-│   │   ├── test_database.py # Database tests
-│   │   ├── test_models.py   # Model validation tests
-│   │   └── test_routes.py   # API endpoint tests
-│   └── main.py           # FastAPI application entry point
-├── ansible/              # Infrastructure as Code
-├── k8s/                 # Kubernetes manifests
-├── helm/                # Helm charts
-├── .github/workflows/   # CI/CD pipelines
-├── Dockerfile           # Multi-stage container build
-├── Taskfile.yml        # Development task automation
-├── docker-compose.yml  # Local development setup
-├── requirements.txt    # Python dependencies
-└── pyproject.toml     # Project configuration
+├── app/                          # Application source code
+│   ├── backend/                 # Backend logic
+│   │   ├── auth.py             # Authentication & JWT handling
+│   │   ├── database.py         # Database configuration
+│   │   ├── models.py           # SQLAlchemy models & Pydantic schemas
+│   │   └── routes.py           # API route definitions
+│   ├── frontend/               # Frontend templates and static files
+│   │   ├── templates/          # Jinja2 HTML templates
+│   │   │   ├── base.html       # Base template
+│   │   │   ├── dashboard.html  # Main dashboard
+│   │   │   ├── login.html      # Login page
+│   │   │   ├── register.html   # Registration page
+│   │   │   └── partials/       # HTMX partial templates
+│   │   └── static/             # CSS, JS, and image assets
+│   │       └── style.css       # Application styles
+│   ├── tests/                  # Comprehensive test suite (95%+ coverage)
+│   │   ├── conftest.py         # Pytest configuration and fixtures
+│   │   ├── test_auth.py        # Authentication tests
+│   │   ├── test_database.py    # Database tests
+│   │   ├── test_models.py      # Model validation tests
+│   │   ├── test_routes.py      # API endpoint tests
+│   │   └── test_main.py        # Main application tests
+│   └── main.py                 # FastAPI application entry point
+├── ansible/                     # Infrastructure as Code automation
+│   ├── playbooks/              # Ansible playbooks
+│   ├── library/                # Custom Ansible modules
+│   ├── group_vars/             # Environment-specific variables
+│   └── inventory/              # Host inventory
+├── k8s/                        # Kubernetes manifests
+│   ├── base/                   # Base Kubernetes resources
+│   ├── overlays/               # Environment-specific overlays
+│   │   ├── dev/               # Development environment
+│   │   └── prod/              # Production environment
+│   └── monitoring/            # Monitoring stack (Prometheus/Grafana)
+├── helm/                       # Helm charts
+│   └── taskflow/              # TaskFlow Helm chart
+│       ├── templates/         # Kubernetes template files
+│       ├── values.yaml        # Default values
+│       ├── values-dev.yaml    # Development values
+│       └── values-prod.yaml   # Production values
+├── docs/                       # Documentation
+├── scripts/                    # Utility scripts
+├── .github/workflows/          # CI/CD pipelines
+├── Dockerfile                  # Multi-stage container build
+├── Taskfile.yml               # Development task automation
+├── docker-compose.yml         # Local development setup
+├── requirements.txt           # Python dependencies
+├── pyproject.toml            # Project configuration
+└── README.md                 # Project documentation
 ```
 
 ### **Environment Variables**
@@ -522,97 +530,54 @@ TaskFlow demonstrates enterprise-grade DevOps practices:
 - **Log Aggregation**: Structured logging for debugging
 - **Performance Monitoring**: Response time and resource usage tracking
 
-## 🤝 Join the TaskFlow Community
+## Contributing
 
-**Ready to make TaskFlow even more awesome?** I'd love your help! 🚀
+Contributions are welcome! Here's how to get started:
 
-### **🛠️ Getting Started**
+### Development Setup
 
-1. 🍴 **Fork it** - Make your own copy
-2. 🌿 **Branch it** - `git checkout -b feature/your-amazing-idea`
-3. 📦 **Install it** - `pip install -r requirements.txt`
-4. ✨ **Code it** - Make your magic happen
-5. 🧪 **Test it** - `pytest` (keep that coverage high!)
-6. 🎨 **Lint it** - `task lint` (make it pretty)
-7. 📝 **Commit it** - `git commit -m 'Add mind-blowing feature'`
-8. 🚀 **Push it** - `git push origin feature/your-amazing-idea`
-9. 🎯 **PR it** - Open a Pull Request and let's chat!
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature-name`
+3. Install development dependencies: `pip install -r requirements.txt`
+4. Make your changes and add tests
+5. Run the test suite: `pytest`
+6. Run linting: `task lint`
+7. Commit your changes: `git commit -m 'Add some feature'`
+8. Push to your branch: `git push origin feature/your-feature-name`
+9. Open a Pull Request
 
-### **🌟 What I'm Looking For**
+### Contribution Guidelines
 
-- **🐛 Bug Fixes** - Help me squash those pesky bugs
-- **✨ New Features** - Got a cool idea? Let's build it!
-- **📚 Documentation** - Make it easier for others to contribute
-- **🧪 Tests** - More coverage = more confidence
-- **🎨 UI/UX** - Make it even more beautiful
+- **Code Quality**: Follow PEP 8 and use Black for formatting
+- **Testing**: Add tests for all new functionality
+- **Documentation**: Update documentation for new features
+- **Security**: Follow security best practices
+- **Performance**: Consider performance impact of changes
 
-### **💡 Need Inspiration?**
+For questions or suggestions, feel free to:
 
-Check out the [GitHub Issues](https://github.com/sylvester-francis/taskflow/issues) or reach out to me:
+- Open an issue on [GitHub](https://github.com/sylvester-francis/taskflow/issues)
+- Connect on [LinkedIn](https://www.linkedin.com/in/sylvesterranjith/)
+- Email: <sylvesterranjithfrancis@gmail.com>
 
-<div align="center">
+## License
 
-[![LinkedIn](https://img.shields.io/badge/Let's_Chat-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/sylvesterranjith/)
-[![Book a Call](https://img.shields.io/badge/Book_a_Call-00C853?style=for-the-badge&logo=calendar&logoColor=white)](https://topmate.io/sylvester_francis)
-[![Email](https://img.shields.io/badge/Email_Me-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:sylvesterranjithfrancis@gmail.com)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-</div>
+## Acknowledgments
 
-### **🏆 Code Quality Standards**
+- **FastAPI** for the excellent web framework
+- **HTMX** for modern frontend development approach
+- **SQLAlchemy** for robust database management
+- **Bootstrap** for responsive design components
+- **Open Source Community** for inspiration and tools
 
-- ✅ **Follow PEP 8** (Black formatting required)
-- 🧪 **Add tests** for all new features
-- 📝 **Update docs** for any changes
-- 🛡️ **Security first** always
-- ⚡ **Performance matters** - keep it fast!
+## Support
 
-## 📄 License
-
-This project is licensed under the **MIT License** - because sharing is caring!
-
-## 🙏 Big Thanks To
-
-- **FastAPI** - For making Python web development a joy
-- **HTMX** - For showing us the HTML renaissance is real
-- **SQLAlchemy** - For making databases fun (yes, really!)
-- **Bootstrap** - For making everything look professional
-- **Open Source Community** - For being absolutely amazing
-
-## 💬 Let's Connect
-
-<div align="center">
-
-**Got questions? Found a bug? Just want to chat about tech?**
-
-[![Documentation](https://img.shields.io/badge/Read_the_Docs-8CA1AF?style=for-the-badge&logo=readme&logoColor=white)](https://github.com/sylvester-francis/taskflow/wiki)
-[![Issues](https://img.shields.io/badge/Report_Issues-D73A49?style=for-the-badge&logo=github&logoColor=white)](https://github.com/sylvester-francis/taskflow/issues)
-[![Discussions](https://img.shields.io/badge/Join_Discussion-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://github.com/sylvester-francis/taskflow/discussions)
-
-**Personal Channels**
-
-[![LinkedIn](https://img.shields.io/badge/Professional_Chat-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/sylvesterranjith/)
-[![YouTube](https://img.shields.io/badge/TechWithSyl-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@TechWithSyl)
-[![Book a Call](https://img.shields.io/badge/1:1_Mentoring-00C853?style=for-the-badge&logo=calendar&logoColor=white)](https://topmate.io/sylvester_francis)
-[![Email](https://img.shields.io/badge/Direct_Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:sylvesterranjithfrancis@gmail.com)
-
-**📍 Based in Waterloo, ON, Canada** 🇨🇦
-
-</div>
+- **Documentation**: [Project Wiki](https://github.com/sylvester-francis/taskflow/wiki)
+- **Issues**: [GitHub Issues](https://github.com/sylvester-francis/taskflow/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/sylvester-francis/taskflow/discussions)
 
 ---
 
-<div align="center">
-
-**Built with lots of ☕ by [Sylvester Francis](https://github.com/sylvester-francis)**
-
-*"The best way to predict the future is to create it. Let's build something extraordinary together!"*
-
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
-![HTMX](https://img.shields.io/badge/HTMX-36C?style=flat-square&logo=htmx&logoColor=white)
-![Bootstrap](https://img.shields.io/badge/Bootstrap-7952B3?style=flat-square&logo=bootstrap&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2CA5E0?style=flat-square&logo=docker&logoColor=white)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white)
-
-**⭐ If TaskFlow helped you be more productive, give it a star! ⭐**
-
-</div>
+**Built by [Sylvester Francis](https://github.com/sylvester-francis)** | [LinkedIn](https://www.linkedin.com/in/sylvesterranjith/) | [YouTube](https://www.youtube.com/@TechWithSyl)
