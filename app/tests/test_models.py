@@ -1,22 +1,32 @@
 """
 Unit tests for database models and Pydantic schemas
 """
-import pytest
 from datetime import datetime
+
+import pytest
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from pydantic import ValidationError
 
 from app.backend.database import Base
 from app.backend.models import (
-    User, Task, UserCreate, UserResponse, TaskCreate, 
-    TaskUpdate, TaskResponse, Token, TokenData
+    Task,
+    TaskCreate,
+    TaskResponse,
+    TaskUpdate,
+    Token,
+    TokenData,
+    User,
+    UserCreate,
+    UserResponse,
 )
 
 
 # Test database setup
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

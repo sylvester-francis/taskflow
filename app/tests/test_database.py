@@ -1,26 +1,27 @@
 """
 Unit tests for database functionality
 """
-import pytest
 import os
 import tempfile
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import IntegrityError
 
-from app.backend.database import Base, get_db, create_tables
-from app.backend.models import User, Task
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import sessionmaker
+
+from app.backend.database import Base, create_tables, get_db
+from app.backend.models import Task, User
 
 
 class TestDatabase:
     """Test database setup and functionality"""
-    
+
     def test_create_tables(self):
         """Test that tables can be created"""
         # Use in-memory database for testing
         engine = create_engine("sqlite:///:memory:")
         Base.metadata.create_all(bind=engine)
-        
+
         # Check that tables exist
         inspector = engine.dialect.get_table_names(engine.connect())
         assert "users" in inspector
@@ -30,16 +31,32 @@ class TestDatabase:
         """Test database schema structure"""
         engine = create_engine("sqlite:///:memory:")
         Base.metadata.create_all(bind=engine)
-        
+
         # Test User table columns
         user_columns = [column.name for column in User.__table__.columns]
-        expected_user_columns = ["id", "username", "email", "hashed_password", "is_active", "created_at"]
+        expected_user_columns = [
+            "id",
+            "username",
+            "email",
+            "hashed_password",
+            "is_active",
+            "created_at",
+        ]
         for col in expected_user_columns:
             assert col in user_columns
-        
+
         # Test Task table columns
         task_columns = [column.name for column in Task.__table__.columns]
-        expected_task_columns = ["id", "title", "description", "completed", "priority", "created_at", "updated_at", "owner_id"]
+        expected_task_columns = [
+            "id",
+            "title",
+            "description",
+            "completed",
+            "priority",
+            "created_at",
+            "updated_at",
+            "owner_id",
+        ]
         for col in expected_task_columns:
             assert col in task_columns
     

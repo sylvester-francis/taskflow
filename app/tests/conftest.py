@@ -1,16 +1,17 @@
 """
 Pytest configuration and shared fixtures
 """
-import pytest
 import os
 import tempfile
+
+import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
 
+from app.backend.auth import create_access_token, get_password_hash
 from app.backend.database import Base, get_db
-from app.backend.models import User, Task
-from app.backend.auth import get_password_hash, create_access_token
+from app.backend.models import Task, User
 from app.main import app
 
 
@@ -22,8 +23,7 @@ TEST_DATABASE_URL = "sqlite:///:memory:"
 def test_engine():
     """Create test database engine for the session"""
     engine = create_engine(
-        TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False}
+        TEST_DATABASE_URL, connect_args={"check_same_thread": False}
     )
     return engine
 
@@ -39,7 +39,7 @@ def db_session(test_engine, test_session_factory):
     """Create a fresh database session for each test"""
     # Create tables
     Base.metadata.create_all(bind=test_engine)
-    
+
     # Create session
     session = test_session_factory()
     
@@ -56,17 +56,17 @@ def client(test_engine, test_session_factory):
     """Create FastAPI test client with test database"""
     # Create tables
     Base.metadata.create_all(bind=test_engine)
-    
+
     def override_get_db():
         session = test_session_factory()
         try:
             yield session
         finally:
             session.close()
-    
+
     # Override dependency
     app.dependency_overrides[get_db] = override_get_db
-    
+
     try:
         with TestClient(app) as test_client:
             yield test_client
@@ -102,7 +102,7 @@ def test_user(db_session, sample_user_data):
     user = User(
         username=sample_user_data["username"],
         email=sample_user_data["email"],
-        hashed_password=get_password_hash(sample_user_data["password"])
+        hashed_password=get_password_hash(sample_user_data["password"]),
     )
     db_session.add(user)
     db_session.commit()
@@ -116,7 +116,7 @@ def test_user_2(db_session):
     user = User(
         username="testuser2",
         email="test2@example.com",
-        hashed_password=get_password_hash("password123")
+        hashed_password=get_password_hash("password123"),
     )
     db_session.add(user)
     db_session.commit()

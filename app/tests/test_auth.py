@@ -1,26 +1,35 @@
 """
 Unit tests for authentication functions
 """
-import pytest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
-from jose import jwt
+
+import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
+from jose import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.backend.auth import (
+    ALGORITHM,
+    SECRET_KEY,
+    authenticate_user,
+    create_access_token,
+    get_current_user,
+    get_password_hash,
+    get_user,
+    verify_password,
+)
 from app.backend.database import Base
 from app.backend.models import User
-from app.backend.auth import (
-    verify_password, get_password_hash, get_user, authenticate_user,
-    create_access_token, get_current_user, SECRET_KEY, ALGORITHM
-)
 
 
 # Test database setup
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
