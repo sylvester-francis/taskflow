@@ -1,8 +1,17 @@
 <div class="alert alert-success" role="alert">
-    <i class="fas fa-check-circle"></i> Welcome back, {{ username }}!
+    <i class="fas fa-check-circle"></i> 
+    {% if message %}
+        {{ message }}
+    {% else %}
+        Welcome back, {{ username }}!
+    {% endif %}
     <script>
         setTimeout(() => {
-            window.location.href = '/dashboard';
+            {% if message %}
+                window.location.href = '/login';
+            {% else %}
+                window.location.href = '/dashboard';
+            {% endif %}
         }, 1500);
     </script>
 </div>

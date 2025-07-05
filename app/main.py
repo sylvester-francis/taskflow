@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.backend.auth import authenticate_user, create_access_token, get_current_user
+from app.backend.auth import authenticate_user, create_access_token, get_current_user, get_current_user_from_cookie
 from app.backend.database import create_tables, get_db
 from app.backend.models import Task, User
 from app.backend.routes import router
@@ -40,6 +40,37 @@ async def register_page(request: Request):
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
+@app.post("/htmx/register")
+async def htmx_register(
+    request: Request,
+    username: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    from app.backend.auth import get_user, get_password_hash
+    
+    # Check if user already exists
+    db_user = get_user(db, username=username)
+    if db_user:
+        return templates.TemplateResponse(
+            "partials/error.html", {"request": request, "error": "Username already registered"}
+        )
+    
+    # Create new user
+    hashed_password = get_password_hash(password)
+    db_user = User(
+        username=username, email=email, hashed_password=hashed_password
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    
+    return templates.TemplateResponse(
+        "partials/login_success.html", {"request": request, "username": db_user.username, "message": "Account created successfully! You can now login."}
+    )
 
 
 @app.post("/htmx/login")
@@ -75,7 +106,7 @@ async def htmx_create_task(
     title: str = Form(...),
     description: str = Form(""),
     priority: str = Form("medium"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_from_cookie),
     db: Session = Depends(get_db),
 ):
     task = Task(
@@ -96,7 +127,7 @@ async def htmx_create_task(
 @app.get("/htmx/tasks")
 async def htmx_get_tasks(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_from_cookie),
     db: Session = Depends(get_db),
 ):
     tasks = db.query(Task).filter(Task.owner_id == current_user.id).all()
@@ -109,7 +140,7 @@ async def htmx_get_tasks(
 async def htmx_toggle_task(
     task_id: int,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_from_cookie),
     db: Session = Depends(get_db),
 ):
     task = (
@@ -133,7 +164,7 @@ async def htmx_toggle_task(
 @app.delete("/htmx/tasks/{task_id}")
 async def htmx_delete_task(
     task_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_from_cookie),
     db: Session = Depends(get_db),
 ):
     task = (

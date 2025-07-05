@@ -5,7 +5,9 @@ pydantic>=2.0.0
 python-multipart>=0.0.6
 jinja2>=3.1.0
 python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.0
+# Pin compatible versions to fix bcrypt compatibility issue
+passlib==1.7.4
+bcrypt==4.0.1
 pytest>=7.0.0
 httpx>=0.24.0
 setuptools>=78.1.1
