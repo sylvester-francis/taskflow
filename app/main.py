@@ -14,8 +14,8 @@ from app.backend.routes import router
 
 app = FastAPI(title="TaskFlow", description="Secure Task Tracking Application")
 
-templates = Jinja2Templates(directory="frontend/templates")
-app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
+templates = Jinja2Templates(directory="app/frontend/templates")
+app.mount("/static", StaticFiles(directory="app/frontend/static"), name="static")
 
 app.include_router(router, prefix="/api", tags=["api"])
 

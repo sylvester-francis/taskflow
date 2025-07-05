@@ -1,0 +1,176 @@
+---
+# Canary Phase Task File
+- name: "Execute canary phase {{ phase_index + 1 }}: {{ phase.percentage }}% traffic"
+  debug:
+    msg:
+      - "Starting canary phase {{ phase_index + 1 }}"
+      - "Traffic percentage: {{ phase.percentage }}%"
+      - "Phase duration: {{ phase.duration }} seconds"
+      
+- name: Calculate replica distribution for {{ phase.percentage }}% traffic
+  set_fact:
+    canary_replicas: "{{ ((deployment_replicas | int) * (phase.percentage | int) / 100) | round(0, 'ceil') | int }}"
+    stable_replicas: "{{ deployment_replicas | int - ((deployment_replicas | int) * (phase.percentage | int) / 100) | round(0, 'ceil') | int }}"
+    
+- name: Display replica distribution
+  debug:
+    msg:
+      - "Total replicas: {{ deployment_replicas }}"
+      - "Canary replicas: {{ canary_replicas }}"
+      - "Stable replicas: {{ stable_replicas }}"
+      
+- name: Scale canary deployment to {{ canary_replicas }} replicas
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: "{{ app_name }}-canary"
+        namespace: "{{ k8s_namespace }}"
+        labels:
+          traffic-percentage: "{{ phase.percentage }}"
+          phase: "{{ phase_index + 1 }}"
+      spec:
+        replicas: "{{ canary_replicas }}"
+        
+- name: Scale stable deployment to {{ stable_replicas }} replicas
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: "{{ app_name }}-stable"
+        namespace: "{{ k8s_namespace }}"
+      spec:
+        replicas: "{{ stable_replicas }}"
+  when: stable_replicas > 0
+  
+- name: Wait for canary scaling to complete
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ app_name }}-canary"
+    namespace: "{{ k8s_namespace }}"
+    wait: true
+    wait_condition:
+      type: Progressing
+      status: "True"
+      reason: NewReplicaSetAvailable
+    wait_timeout: 300
+    
+- name: Update traffic routing for {{ phase.percentage }}% canary traffic
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: networking.istio.io/v1alpha3
+      kind: VirtualService
+      metadata:
+        name: "{{ app_name }}-canary-vs"
+        namespace: "{{ k8s_namespace }}"
+      spec:
+        hosts:
+        - "{{ app_name }}-service"
+        http:
+        - match:
+          - headers:
+              canary:
+                exact: "true"
+          route:
+          - destination:
+              host: "{{ app_name }}-canary-service"
+            weight: 100
+        - route:
+          - destination:
+              host: "{{ app_name }}-canary-service"
+            weight: "{{ phase.percentage }}"
+          - destination:
+              host: "{{ app_name }}-service"
+            weight: "{{ 100 - phase.percentage }}"
+  when: phase.percentage < 100
+  ignore_errors: true  # In case Istio is not available
+  
+- name: Monitor canary deployment for {{ phase.duration }} seconds
+  block:
+    - name: Run health checks during canary phase
+      uri:
+        url: "http://{{ app_name }}-canary-service.{{ k8s_namespace }}.svc.cluster.local:80{{ health_check.path }}"
+        method: GET
+        timeout: 5
+      register: canary_health_check
+      retries: "{{ (phase.duration / 30) | int }}"
+      delay: 30
+      when: phase.duration > 0
+      
+    - name: Monitor error rates during canary phase
+      uri:
+        url: "http://prometheus.taskflow-monitoring.svc.cluster.local:9090/api/v1/query"
+        method: GET
+        body_format: form-urlencoded
+        body:
+          query: "rate(http_requests_total{job='{{ app_name }}-canary',status=~'5..'}[5m])"
+      register: error_rate_check
+      retries: "{{ (phase.duration / 60) | int }}"
+      delay: 60
+      ignore_errors: true
+      when: phase.duration > 0
+      
+    - name: Monitor response times during canary phase
+      uri:
+        url: "http://prometheus.taskflow-monitoring.svc.cluster.local:9090/api/v1/query"
+        method: GET
+        body_format: form-urlencoded
+        body:
+          query: "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job='{{ app_name }}-canary'}[5m]))"
+      register: response_time_check
+      retries: "{{ (phase.duration / 60) | int }}"
+      delay: 60
+      ignore_errors: true
+      when: phase.duration > 0
+      
+    - name: Wait for phase duration
+      pause:
+        seconds: "{{ phase.duration }}"
+      when: phase.duration > 0
+      
+  rescue:
+    - name: Canary phase {{ phase_index + 1 }} failed
+      debug:
+        msg: "Canary phase {{ phase_index + 1 }} failed health checks"
+        
+    - name: Set canary failure flag
+      set_fact:
+        canary_phase_failed: true
+        
+    - name: Fail the phase
+      fail:
+        msg: "Canary phase {{ phase_index + 1 }} failed - stopping canary deployment"
+        
+- name: Validate canary phase success
+  infrastructure_validator:
+    namespace: "{{ k8s_namespace }}"
+    app_name: "{{ app_name }}"
+    environment: "{{ environment }}"
+    expected_replicas: "{{ canary_replicas }}"
+    health_check_url: "http://{{ app_name }}-canary-service.{{ k8s_namespace }}.svc.cluster.local:80{{ health_check.path }}"
+    performance_thresholds:
+      response_time_ms: 200
+      cpu_usage_percent: 80
+      memory_usage_percent: 80
+    compliance_checks:
+      - security_context
+      - resource_limits
+      - health_checks
+  register: canary_phase_validation
+  
+- name: Fail if canary phase validation failed
+  fail:
+    msg: "Canary phase {{ phase_index + 1 }} validation failed"
+  when: not canary_phase_validation.passed
+  
+- name: Log successful canary phase completion
+  debug:
+    msg:
+      - "Canary phase {{ phase_index + 1 }} completed successfully"
+      - "Traffic percentage: {{ phase.percentage }}%"
+      - "Canary replicas: {{ canary_replicas }}"
+      - "Stable replicas: {{ stable_replicas }}"
+      - "Validation: PASSED"

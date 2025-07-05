@@ -1,0 +1,77 @@
+---
+# Production environment specific configuration
+environment: production
+k8s_namespace: taskflow
+k8s_context: taskflow-production
+
+# Resource configuration for production
+resources:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+# Deployment configuration
+deployment_replicas: 3
+hpa_enabled: true
+hpa_config:
+  min_replicas: 3
+  max_replicas: 10
+  target_cpu_utilization: 70
+  target_memory_utilization: 80
+
+# Application configuration
+app_config:
+  debug: false
+  log_level: "INFO"
+  reload: false
+  
+# Database configuration
+database_config:
+  backup_enabled: true
+  backup_schedule: "0 2,14 * * *"  # Twice daily
+  backup_retention_days: 30
+  
+# Security configuration - strict for production
+security_config:
+  fail_on_critical: true
+  scan_on_deploy: true
+  network_policies_enabled: true
+  pod_security_standards: "restricted"
+  
+# Monitoring configuration
+monitoring_config:
+  prometheus:
+    retention_time: "30d"
+    scrape_interval: "30s"
+    high_availability: true
+  grafana:
+    install_plugins: false
+    allow_embedding: false
+    smtp_enabled: true
+    
+# Ingress configuration
+ingress_config:
+  host: "taskflow.example.com"
+  tls_enabled: true
+  certificate_issuer: "letsencrypt-prod"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/security-headers: "true"
+    nginx.ingress.kubernetes.io/content-security-policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    
+# Alerting configuration
+alerting_config:
+  enabled: true
+  slack_webhook: "{{ vault_slack_webhook }}"
+  email_recipients:
+    - "devops@example.com"
+    - "sre@example.com"
+  severity_levels:
+    - critical
+    - warning
+    - info

@@ -1,0 +1,74 @@
+---
+# Global configuration for all environments
+app_name: taskflow
+app_version: "{{ ansible_date_time.epoch }}"
+container_registry: ghcr.io
+container_namespace: "{{ ansible_user_id | default('taskflow') }}"
+container_image: "{{ container_registry }}/{{ container_namespace }}/taskflow"
+
+# Kubernetes configuration
+k8s_config_path: "~/.kube/config"
+k8s_validate_certs: false
+k8s_wait_condition:
+  type: Ready
+  status: "True"
+k8s_wait_timeout: 300
+
+# Application configuration
+app_config:
+  database_path: "/app/data/taskflow.db"
+  log_level: "INFO"
+  debug: false
+  secret_key: "{{ vault_secret_key | default('dev-secret-key-change-in-production') }}"
+  
+# Health check configuration
+health_check:
+  path: "/docs"
+  port: 8000
+  initial_delay_seconds: 10
+  period_seconds: 10
+  timeout_seconds: 5
+  failure_threshold: 3
+  success_threshold: 1
+
+# Security configuration
+security_config:
+  run_as_non_root: true
+  run_as_user: 1000
+  run_as_group: 1000
+  fs_group: 1000
+  read_only_root_filesystem: false
+  allow_privilege_escalation: false
+  drop_capabilities:
+    - ALL
+  add_capabilities:
+    - NET_BIND_SERVICE
+
+# Monitoring configuration
+monitoring_config:
+  prometheus:
+    enabled: true
+    port: 9090
+    retention_time: "15d"
+    scrape_interval: "30s"
+    evaluation_interval: "30s"
+  grafana:
+    enabled: true
+    port: 3000
+    admin_user: "admin"
+    admin_password: "{{ vault_grafana_admin_password | default('admin') }}"
+    
+# Backup configuration
+backup_config:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM UTC
+  retention_days: 7
+  storage_size: "1Gi"
+  
+# Deployment configuration
+deployment_config:
+  strategy: RollingUpdate
+  max_surge: 1
+  max_unavailable: 0
+  progress_deadline_seconds: 600
+  revision_history_limit: 10

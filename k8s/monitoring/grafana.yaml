@@ -1,0 +1,363 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: taskflow-monitoring
+  labels:
+    app: grafana
+    component: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+        component: monitoring
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.0.0
+        ports:
+        - containerPort: 3000
+          name: web
+          protocol: TCP
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana-secret
+              key: admin-password
+        - name: GF_SERVER_ROOT_URL
+          value: "http://grafana.local"
+        - name: GF_INSTALL_PLUGINS
+          value: "grafana-piechart-panel"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          timeoutSeconds: 10
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "300m"
+        volumeMounts:
+        - name: grafana-storage
+          mountPath: /var/lib/grafana
+        - name: grafana-datasources
+          mountPath: /etc/grafana/provisioning/datasources
+        - name: grafana-dashboards-config
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: grafana-dashboards
+          mountPath: /var/lib/grafana/dashboards
+      volumes:
+      - name: grafana-storage
+        emptyDir: {}
+      - name: grafana-datasources
+        configMap:
+          name: grafana-datasources
+      - name: grafana-dashboards-config
+        configMap:
+          name: grafana-dashboards-config
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        fsGroup: 472
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: taskflow-monitoring
+  labels:
+    app: grafana
+    component: monitoring
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: web
+  selector:
+    app: grafana
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-secret
+  namespace: taskflow-monitoring
+  labels:
+    app: grafana
+    component: monitoring
+type: Opaque
+data:
+  admin-password: YWRtaW4xMjM=  # admin123 encoded in base64
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: taskflow-monitoring
+  labels:
+    app: grafana
+    component: monitoring
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus.taskflow-monitoring.svc.cluster.local:9090
+      isDefault: true
+      editable: true
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-config
+  namespace: taskflow-monitoring
+  labels:
+    app: grafana
+    component: monitoring
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 60
+      allowUiUpdates: true
+      options:
+        path: /var/lib/grafana/dashboards
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: taskflow-monitoring
+  labels:
+    app: grafana
+    component: monitoring
+data:
+  taskflow-overview.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "TaskFlow Overview",
+        "uid": "taskflow-overview",
+        "version": 1,
+        "schemaVersion": 27,
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "timepicker": {
+          "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h"]
+        },
+        "refresh": "30s",
+        "panels": [
+          {
+            "id": 1,
+            "title": "HTTP Requests/sec",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{job=~\"taskflow.*\"}[5m])",
+                "legendFormat": "Requests/sec",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+            "fieldConfig": {
+              "defaults": {
+                "unit": "reqps",
+                "min": 0
+              }
+            }
+          },
+          {
+            "id": 2,
+            "title": "Response Time (95th percentile)",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=~\"taskflow.*\"}[5m]))",
+                "legendFormat": "95th percentile",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+            "fieldConfig": {
+              "defaults": {
+                "unit": "s",
+                "min": 0
+              }
+            }
+          },
+          {
+            "id": 3,
+            "title": "Error Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{job=~\"taskflow.*\",status=~\"5..\"}[5m]) / rate(http_requests_total{job=~\"taskflow.*\"}[5m]) * 100",
+                "legendFormat": "Error rate",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent",
+                "min": 0,
+                "max": 100
+              }
+            }
+          },
+          {
+            "id": 4,
+            "title": "Active Pods",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "kube_deployment_status_replicas_available{deployment=~\"taskflow.*\"}",
+                "legendFormat": "Available pods",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+            "fieldConfig": {
+              "defaults": {
+                "unit": "short",
+                "min": 0
+              }
+            }
+          },
+          {
+            "id": 5,
+            "title": "HTTP Requests by Status",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{job=~\"taskflow.*\"}[5m])",
+                "legendFormat": "{{status}} - {{method}}",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+            "fieldConfig": {
+              "defaults": {
+                "unit": "reqps"
+              }
+            }
+          },
+          {
+            "id": 6,
+            "title": "CPU Usage",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate(container_cpu_usage_seconds_total{namespace=~\"taskflow.*\",container!=\"POD\",container!=\"\"}[5m])",
+                "legendFormat": "{{pod}} - {{container}}",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percentunit"
+              }
+            }
+          },
+          {
+            "id": 7,
+            "title": "Memory Usage",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "container_memory_working_set_bytes{namespace=~\"taskflow.*\",container!=\"POD\",container!=\"\"}",
+                "legendFormat": "{{pod}} - {{container}}",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+            "fieldConfig": {
+              "defaults": {
+                "unit": "bytes"
+              }
+            }
+          },
+          {
+            "id": 8,
+            "title": "Pod Restarts",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate(kube_pod_container_status_restarts_total{namespace=~\"taskflow.*\"}[5m])",
+                "legendFormat": "{{pod}} - {{container}}",
+                "refId": "A"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+            "fieldConfig": {
+              "defaults": {
+                "unit": "short",
+                "min": 0
+              }
+            }
+          }
+        ]
+      },
+      "overwrite": true
+    }
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress
+  namespace: taskflow-monitoring
+  labels:
+    app: grafana
+    component: monitoring
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - host: grafana.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000

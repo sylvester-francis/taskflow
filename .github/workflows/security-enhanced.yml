@@ -1,0 +1,378 @@
+name: Enhanced Security Scanning
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Mondays at 2 AM
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # Extended SAST scanning
+  sast-scan:
+    name: Static Application Security Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install bandit semgrep safety
+
+    - name: Run Bandit security scan
+      run: |
+        bandit -r app/ -f json -o bandit-results.json
+        bandit -r app/ -f txt -o bandit-results.txt
+      continue-on-error: true
+
+    - name: Run Semgrep security scan
+      run: |
+        semgrep --config=auto --json -o semgrep-results.json app/
+        semgrep --config=auto --text -o semgrep-results.txt app/
+      continue-on-error: true
+
+    - name: Run Safety dependency scan
+      run: |
+        safety check --json --output safety-results.json
+        safety check --output safety-results.txt
+      continue-on-error: true
+
+    - name: Upload SAST results
+      uses: actions/upload-artifact@v4
+      with:
+        name: sast-results
+        path: |
+          bandit-results.*
+          semgrep-results.*
+          safety-results.*
+
+    - name: Upload Semgrep results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: semgrep-results.json
+      continue-on-error: true
+
+  # Container security scanning
+  container-scan:
+    name: Container Security Scanning
+    runs-on: ubuntu-latest
+    needs: sast-scan
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image for scanning
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: ${{ env.IMAGE_NAME }}:scan
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.IMAGE_NAME }}:scan
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Run Trivy filesystem scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-fs-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Upload Trivy filesystem results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-fs-results.sarif'
+
+    - name: Generate detailed Trivy report
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.IMAGE_NAME }}:scan
+        format: 'json'
+        output: 'trivy-detailed.json'
+
+    - name: Upload container scan results
+      uses: actions/upload-artifact@v4
+      with:
+        name: container-scan-results
+        path: |
+          trivy-*.sarif
+          trivy-detailed.json
+
+  # DAST scanning with OWASP ZAP
+  dast-scan:
+    name: Dynamic Application Security Testing
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' # Only run on push/PR, not scheduled
+    needs: container-scan
+    
+    services:
+      taskflow:
+        image: ${{ env.IMAGE_NAME }}:scan
+        ports:
+          - 8000:8000
+        options: >-
+          --health-cmd "curl -f http://localhost:8000/docs || exit 1"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Wait for application to be ready
+      run: |
+        timeout 300 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' http://localhost:8000/docs)" != "200" ]]; do sleep 5; done'
+
+    - name: Run OWASP ZAP Baseline Scan
+      uses: zaproxy/action-baseline@v0.7.0
+      with:
+        target: 'http://localhost:8000'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a'
+
+    - name: Run OWASP ZAP Full Scan
+      uses: zaproxy/action-full-scan@v0.4.0
+      with:
+        target: 'http://localhost:8000'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a -j'
+      continue-on-error: true
+
+    - name: Upload ZAP scan results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: zap-results
+        path: |
+          report_html.html
+          report_json.json
+          report_md.md
+
+  # Security compliance check
+  compliance-scan:
+    name: Security Compliance Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Docker Bench Security
+      run: |
+        docker run --rm --net host --pid host --userns host --cap-add audit_control \
+          -e DOCKER_CONTENT_TRUST=$DOCKER_CONTENT_TRUST \
+          -v /etc:/etc:ro \
+          -v /var/lib:/var/lib:ro \
+          -v /var/run/docker.sock:/var/run/docker.sock:ro \
+          -v /usr/lib/systemd:/usr/lib/systemd:ro \
+          -v /etc/systemd:/etc/systemd:ro \
+          --label docker_bench_security \
+          docker/docker-bench-security | tee docker-bench-results.txt
+      continue-on-error: true
+
+    - name: Check Kubernetes manifests with kube-score
+      run: |
+        # Install kube-score
+        wget https://github.com/zegl/kube-score/releases/latest/download/kube-score_linux_amd64 -O kube-score
+        chmod +x kube-score
+        
+        # Scan Kubernetes manifests
+        find k8s/ -name "*.yaml" -o -name "*.yml" | xargs ./kube-score score --output-format json > kube-score-results.json
+        find k8s/ -name "*.yaml" -o -name "*.yml" | xargs ./kube-score score > kube-score-results.txt
+      continue-on-error: true
+
+    - name: Scan Helm charts with Checkov
+      run: |
+        pip install checkov
+        checkov -d helm/ --framework helm --output json --output-file checkov-helm-results.json
+        checkov -d helm/ --framework helm > checkov-helm-results.txt
+      continue-on-error: true
+
+    - name: Upload compliance results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: compliance-results
+        path: |
+          docker-bench-results.txt
+          kube-score-results.*
+          checkov-helm-results.*
+
+  # Secrets scanning
+  secrets-scan:
+    name: Secrets Detection
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for secret scanning
+
+    - name: Run TruffleHog secrets scan
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+
+    - name: Run GitLeaks secrets scan
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE}}
+
+  # Aggregate security results
+  security-report:
+    name: Generate Security Report
+    runs-on: ubuntu-latest
+    needs: [sast-scan, container-scan, dast-scan, compliance-scan, secrets-scan]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: security-results/
+
+    - name: Install report generator dependencies
+      run: |
+        pip install jinja2 pyyaml
+
+    - name: Generate security report
+      run: |
+        python .github/scripts/generate-security-report.py security-results/
+      continue-on-error: true
+
+    - name: Upload consolidated security report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-report
+        path: |
+          security-report.html
+          security-report.json
+          security-summary.md
+
+    - name: Comment PR with security summary
+      uses: actions/github-script@v6
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const fs = require('fs');
+          if (fs.existsSync('security-summary.md')) {
+            const summary = fs.readFileSync('security-summary.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## 🔒 Security Scan Results\n\n' + summary
+            });
+          }
+
+  # Security gate
+  security-gate:
+    name: Security Gate
+    runs-on: ubuntu-latest
+    needs: [sast-scan, container-scan, secrets-scan]
+    if: always()
+    
+    steps:
+    - name: Download SAST results
+      uses: actions/download-artifact@v4
+      with:
+        name: sast-results
+        path: sast-results/
+
+    - name: Download container scan results
+      uses: actions/download-artifact@v4
+      with:
+        name: container-scan-results
+        path: container-results/
+
+    - name: Evaluate security gate
+      run: |
+        python << 'EOF'
+        import json
+        import sys
+        
+        # Check Trivy results for critical vulnerabilities
+        try:
+            with open('container-results/trivy-detailed.json', 'r') as f:
+                trivy_data = json.load(f)
+            
+            critical_vulns = 0
+            high_vulns = 0
+            
+            for result in trivy_data.get('Results', []):
+                for vuln in result.get('Vulnerabilities', []):
+                    severity = vuln.get('Severity', '').upper()
+                    if severity == 'CRITICAL':
+                        critical_vulns += 1
+                    elif severity == 'HIGH':
+                        high_vulns += 1
+            
+            print(f"Critical vulnerabilities: {critical_vulns}")
+            print(f"High vulnerabilities: {high_vulns}")
+            
+            # Security gate policy
+            if critical_vulns > 0:
+                print("❌ Security gate FAILED: Critical vulnerabilities found")
+                sys.exit(1)
+            elif high_vulns > 5:  # Allow up to 5 high severity issues
+                print("⚠️  Security gate WARNING: High number of high-severity vulnerabilities")
+                # Don't fail for high severity in this example
+            else:
+                print("✅ Security gate PASSED")
+                
+        except FileNotFoundError:
+            print("⚠️  Security gate: Trivy results not found, allowing pass")
+        except Exception as e:
+            print(f"❌ Security gate ERROR: {e}")
+            sys.exit(1)
+        EOF
+
+    - name: Fail on security gate failure
+      if: failure()
+      run: |
+        echo "Security gate failed - blocking deployment"
+        exit 1

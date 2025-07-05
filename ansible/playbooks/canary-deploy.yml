@@ -1,0 +1,308 @@
+---
+# Canary Deployment Playbook for TaskFlow
+- name: TaskFlow Canary Deployment
+  hosts: all
+  gather_facts: true
+  vars:
+    deployment_timestamp: "{{ ansible_date_time.epoch }}"
+    canary_enabled: true
+    canary_percentage: 10  # Start with 10% traffic
+    canary_phases:
+      - percentage: 10
+        duration: 300  # 5 minutes
+      - percentage: 25
+        duration: 600  # 10 minutes
+      - percentage: 50
+        duration: 900  # 15 minutes
+      - percentage: 100
+        duration: 0    # Full rollout
+    health_check_timeout: 180
+    rollback_on_failure: true
+    
+  pre_tasks:
+    - name: Validate canary deployment prerequisites
+      assert:
+        that:
+          - environment is defined
+          - container_image is defined
+          - app_version is defined
+          - deployment_replicas is defined
+        fail_msg: "Required variables for canary deployment not defined"
+        
+    - name: Display canary deployment information
+      debug:
+        msg:
+          - "Starting canary deployment for {{ app_name }}"
+          - "Environment: {{ environment }}"
+          - "Current version: {{ app_version }}"
+          - "Target namespace: {{ k8s_namespace }}"
+          - "Deployment strategy: canary"
+          - "Canary phases: {{ canary_phases }}"
+          
+  tasks:
+    - name: Get current stable deployment
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ app_name }}-stable"
+        namespace: "{{ k8s_namespace }}"
+      register: stable_deployment
+      
+    - name: Set stable deployment replicas
+      set_fact:
+        stable_replicas: "{{ stable_deployment.resources[0].spec.replicas | default(deployment_replicas) }}"
+        stable_image: "{{ stable_deployment.resources[0].spec.template.spec.containers[0].image | default('unknown') }}"
+        
+    - name: Display current stable state
+      debug:
+        msg:
+          - "Stable deployment replicas: {{ stable_replicas }}"
+          - "Stable deployment image: {{ stable_image }}"
+          
+    - name: Deploy canary version
+      taskflow_deploy:
+        namespace: "{{ k8s_namespace }}"
+        image: "{{ container_image }}:{{ app_version }}"
+        replicas: 1  # Start with single replica
+        resources: "{{ resources }}"
+        environment: "{{ environment }}"
+        app_config: "{{ app_config }}"
+        health_check: "{{ health_check }}"
+        deployment_strategy: "RollingUpdate"
+        wait_for_ready: true
+        wait_timeout: "{{ health_check_timeout }}"
+        deployment_suffix: "-canary"
+      register: canary_deployment_result
+      
+    - name: Validate canary deployment health
+      infrastructure_validator:
+        namespace: "{{ k8s_namespace }}"
+        app_name: "{{ app_name }}"
+        environment: "{{ environment }}"
+        expected_replicas: 1
+        health_check_url: "http://{{ app_name }}-canary-service.{{ k8s_namespace }}.svc.cluster.local:80{{ health_check.path }}"
+        performance_thresholds:
+          response_time_ms: 300
+        compliance_checks:
+          - security_context
+          - resource_limits
+          - health_checks
+        timeout: "{{ health_check_timeout }}"
+      register: canary_validation
+      
+    - name: Fail if canary deployment validation failed
+      fail:
+        msg: "Canary deployment validation failed: {{ canary_validation }}"
+      when: not canary_validation.passed
+      
+    - name: Create canary service
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: "{{ app_name }}-canary-service"
+            namespace: "{{ k8s_namespace }}"
+            labels:
+              app: "{{ app_name }}"
+              version: "canary"
+              deployment-type: "canary"
+          spec:
+            selector:
+              app: "{{ app_name }}"
+              version: "canary"
+            ports:
+            - port: 80
+              targetPort: 8000
+              protocol: TCP
+            type: ClusterIP
+            
+    - name: Execute canary phases
+      include_tasks: canary-phase.yml
+      loop: "{{ canary_phases }}"
+      loop_control:
+        loop_var: phase
+        index_var: phase_index
+      register: canary_phase_results
+      
+    - name: Evaluate canary deployment success
+      set_fact:
+        canary_success: "{{ canary_phase_results.results | selectattr('ansible_loop_var.percentage', 'equalto', 100) | list | length > 0 }}"
+        
+    - name: Promote canary to stable (100% traffic)
+      block:
+        - name: Scale stable deployment to 0
+          kubernetes.core.k8s:
+            definition:
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: "{{ app_name }}-stable"
+                namespace: "{{ k8s_namespace }}"
+              spec:
+                replicas: 0
+                
+        - name: Rename canary deployment to stable
+          kubernetes.core.k8s:
+            definition:
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: "{{ app_name }}-canary"
+                namespace: "{{ k8s_namespace }}"
+                labels:
+                  app: "{{ app_name }}"
+                  version: "stable"
+                  deployment-type: "stable"
+                  promoted-from: "canary"
+                  promotion-timestamp: "{{ deployment_timestamp }}"
+              spec:
+                replicas: "{{ deployment_replicas }}"
+                selector:
+                  matchLabels:
+                    app: "{{ app_name }}"
+                    version: "stable"
+                template:
+                  metadata:
+                    labels:
+                      app: "{{ app_name }}"
+                      version: "stable"
+        
+        - name: Update main service to point to stable
+          kubernetes.core.k8s:
+            definition:
+              apiVersion: v1
+              kind: Service
+              metadata:
+                name: "{{ app_name }}-service"
+                namespace: "{{ k8s_namespace }}"
+              spec:
+                selector:
+                  app: "{{ app_name }}"
+                  version: "stable"
+                  
+        - name: Clean up canary service
+          kubernetes.core.k8s:
+            name: "{{ app_name }}-canary-service"
+            api_version: v1
+            kind: Service
+            namespace: "{{ k8s_namespace }}"
+            state: absent
+            
+      when: canary_success
+      
+  post_tasks:
+    - name: Display canary deployment summary
+      debug:
+        msg:
+          - "Canary deployment {{ 'completed successfully' if canary_success else 'failed' }}!"
+          - "Final status: {{ 'PROMOTED' if canary_success else 'ROLLED BACK' }}"
+          - "Version deployed: {{ app_version }}"
+          - "Deployment timestamp: {{ deployment_timestamp }}"
+          
+    - name: Send deployment notification
+      uri:
+        url: "{{ vault_slack_webhook }}"
+        method: POST
+        body_format: json
+        body:
+          text: "🕯️ TaskFlow Canary Deployment {{ 'Completed' if canary_success else 'Failed' }}"
+          attachments:
+            - color: "{{ 'good' if canary_success else 'danger' }}"
+              title: "Canary Deployment Summary"
+              fields:
+                - title: "Environment"
+                  value: "{{ environment }}"
+                  short: true
+                - title: "Version"
+                  value: "{{ app_version }}"
+                  short: true
+                - title: "Final Status"
+                  value: "{{ 'PROMOTED' if canary_success else 'ROLLED BACK' }}"
+                  short: true
+                - title: "Phases Completed"
+                  value: "{{ canary_phase_results.results | length }}/{{ canary_phases | length }}"
+                  short: true
+      when: vault_slack_webhook is defined
+      ignore_errors: true
+      
+  rescue:
+    - name: Canary deployment failed - initiating rollback
+      debug:
+        msg: "Canary deployment failed. Initiating rollback..."
+        
+    - name: Scale down canary deployment
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: "{{ app_name }}-canary"
+            namespace: "{{ k8s_namespace }}"
+          spec:
+            replicas: 0
+      when: rollback_on_failure
+      
+    - name: Restore stable deployment to full capacity
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: "{{ app_name }}-stable"
+            namespace: "{{ k8s_namespace }}"
+          spec:
+            replicas: "{{ deployment_replicas }}"
+      when: rollback_on_failure
+      
+    - name: Ensure main service points to stable
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: "{{ app_name }}-service"
+            namespace: "{{ k8s_namespace }}"
+          spec:
+            selector:
+              app: "{{ app_name }}"
+              version: "stable"
+      when: rollback_on_failure
+      
+    - name: Clean up canary resources
+      kubernetes.core.k8s:
+        name: "{{ item }}"
+        api_version: v1
+        kind: Service
+        namespace: "{{ k8s_namespace }}"
+        state: absent
+      loop:
+        - "{{ app_name }}-canary-service"
+      ignore_errors: true
+      
+    - name: Send failure notification
+      uri:
+        url: "{{ vault_slack_webhook }}"
+        method: POST
+        body_format: json
+        body:
+          text: "❌ TaskFlow Canary Deployment Failed"
+          attachments:
+            - color: "danger"
+              title: "Canary Deployment Failure"
+              fields:
+                - title: "Environment"
+                  value: "{{ environment }}"
+                  short: true
+                - title: "Version"
+                  value: "{{ app_version }}"
+                  short: true
+                - title: "Rollback Status"
+                  value: "{{ 'COMPLETED' if rollback_on_failure else 'MANUAL REQUIRED' }}"
+                  short: false
+      when: vault_slack_webhook is defined
+      ignore_errors: true
+      
+    - name: Fail the playbook
+      fail:
+        msg: "Canary deployment failed and rollback completed"

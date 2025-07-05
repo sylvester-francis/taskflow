@@ -1,0 +1,340 @@
+---
+# Blue-Green Deployment Playbook for TaskFlow
+- name: TaskFlow Blue-Green Deployment
+  hosts: all
+  gather_facts: true
+  vars:
+    deployment_timestamp: "{{ ansible_date_time.epoch }}"
+    blue_green_enabled: true
+    health_check_timeout: 300
+    rollback_on_failure: true
+    
+  pre_tasks:
+    - name: Validate blue-green deployment prerequisites
+      assert:
+        that:
+          - environment is defined
+          - container_image is defined
+          - app_version is defined
+        fail_msg: "Required variables for blue-green deployment not defined"
+        
+    - name: Display blue-green deployment information
+      debug:
+        msg:
+          - "Starting blue-green deployment for {{ app_name }}"
+          - "Environment: {{ environment }}"
+          - "Current version: {{ app_version }}"
+          - "Target namespace: {{ k8s_namespace }}"
+          - "Deployment strategy: blue-green"
+          
+  tasks:
+    - name: Determine current active deployment color
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Service
+        name: "{{ app_name }}-service"
+        namespace: "{{ k8s_namespace }}"
+      register: current_service
+      
+    - name: Set deployment colors
+      set_fact:
+        current_color: "{{ current_service.resources[0].spec.selector.color | default('blue') }}"
+        new_color: "{{ 'green' if (current_service.resources[0].spec.selector.color | default('blue')) == 'blue' else 'blue' }}"
+        
+    - name: Display color assignment
+      debug:
+        msg:
+          - "Current active color: {{ current_color }}"
+          - "New deployment color: {{ new_color }}"
+          
+    - name: Deploy new version to inactive color
+      taskflow_deploy:
+        namespace: "{{ k8s_namespace }}"
+        image: "{{ container_image }}:{{ app_version }}"
+        replicas: "{{ deployment_replicas }}"
+        resources: "{{ resources }}"
+        environment: "{{ environment }}"
+        app_config: "{{ app_config }}"
+        health_check: "{{ health_check }}"
+        deployment_strategy: "Recreate"  # For blue-green, we replace entirely
+        wait_for_ready: true
+        wait_timeout: "{{ health_check_timeout }}"
+        deployment_suffix: "-{{ new_color }}"
+      register: new_deployment_result
+      
+    - name: Validate new deployment health
+      infrastructure_validator:
+        namespace: "{{ k8s_namespace }}"
+        app_name: "{{ app_name }}"
+        environment: "{{ environment }}"
+        expected_replicas: "{{ deployment_replicas }}"
+        health_check_url: "http://{{ app_name }}-{{ new_color }}-service.{{ k8s_namespace }}.svc.cluster.local:80{{ health_check.path }}"
+        performance_thresholds:
+          response_time_ms: 500  # More lenient for initial deployment
+        compliance_checks:
+          - security_context
+          - resource_limits
+          - health_checks
+        timeout: "{{ health_check_timeout }}"
+      register: new_deployment_validation
+      
+    - name: Fail if new deployment validation failed
+      fail:
+        msg: "New deployment validation failed: {{ new_deployment_validation }}"
+      when: not new_deployment_validation.passed
+      
+    - name: Create temporary service for testing new deployment
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: "{{ app_name }}-{{ new_color }}-service"
+            namespace: "{{ k8s_namespace }}"
+            labels:
+              app: "{{ app_name }}"
+              color: "{{ new_color }}"
+              deployment-type: "blue-green"
+          spec:
+            selector:
+              app: "{{ app_name }}"
+              color: "{{ new_color }}"
+            ports:
+            - port: 80
+              targetPort: 8000
+              protocol: TCP
+            type: ClusterIP
+      register: temp_service_result
+      
+    - name: Run smoke tests on new deployment
+      uri:
+        url: "http://{{ app_name }}-{{ new_color }}-service.{{ k8s_namespace }}.svc.cluster.local:80{{ health_check.path }}"
+        method: GET
+        timeout: 10
+      register: smoke_test_result
+      retries: 5
+      delay: 10
+      
+    - name: Run additional health checks
+      uri:
+        url: "http://{{ app_name }}-{{ new_color }}-service.{{ k8s_namespace }}.svc.cluster.local:80/api/health"
+        method: GET
+        timeout: 5
+      register: health_check_result
+      retries: 3
+      delay: 5
+      ignore_errors: true
+      
+    - name: Update main service selector to new color (Blue-Green Switch)
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: "{{ app_name }}-service"
+            namespace: "{{ k8s_namespace }}"
+            labels:
+              app: "{{ app_name }}"
+              active-color: "{{ new_color }}"
+          spec:
+            selector:
+              app: "{{ app_name }}"
+              color: "{{ new_color }}"
+            ports:
+            - port: 80
+              targetPort: 8000
+              protocol: TCP
+            type: ClusterIP
+      register: service_switch_result
+      
+    - name: Wait for service switch to propagate
+      pause:
+        seconds: 10
+        
+    - name: Validate service switch success
+      uri:
+        url: "http://{{ app_name }}-service.{{ k8s_namespace }}.svc.cluster.local:80{{ health_check.path }}"
+        method: GET
+        timeout: 10
+      register: post_switch_validation
+      retries: 5
+      delay: 5
+      
+    - name: Run post-switch infrastructure validation
+      infrastructure_validator:
+        namespace: "{{ k8s_namespace }}"
+        app_name: "{{ app_name }}"
+        environment: "{{ environment }}"
+        expected_replicas: "{{ deployment_replicas }}"
+        health_check_url: "http://{{ ingress_config.host | default('localhost') }}{{ health_check.path }}"
+        performance_thresholds:
+          response_time_ms: 200
+          cpu_usage_percent: 80
+          memory_usage_percent: 80
+        compliance_checks:
+          - security_context
+          - resource_limits
+          - health_checks
+      register: post_switch_validation_result
+      
+    - name: Scale down old deployment
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: "{{ app_name }}-{{ current_color }}"
+            namespace: "{{ k8s_namespace }}"
+          spec:
+            replicas: 0
+      when: post_switch_validation_result.passed
+      
+    - name: Clean up temporary service
+      kubernetes.core.k8s:
+        name: "{{ app_name }}-{{ new_color }}-service"
+        api_version: v1
+        kind: Service
+        namespace: "{{ k8s_namespace }}"
+        state: absent
+        
+    - name: Update deployment labels for tracking
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: "{{ app_name }}-{{ new_color }}"
+            namespace: "{{ k8s_namespace }}"
+            labels:
+              app: "{{ app_name }}"
+              color: "{{ new_color }}"
+              active: "true"
+              deployment-type: "blue-green"
+              deployment-timestamp: "{{ deployment_timestamp }}"
+              version: "{{ app_version }}"
+        merge_type: merge
+        
+    - name: Mark old deployment as inactive
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: "{{ app_name }}-{{ current_color }}"
+            namespace: "{{ k8s_namespace }}"
+            labels:
+              app: "{{ app_name }}"
+              color: "{{ current_color }}"
+              active: "false"
+              deployment-type: "blue-green"
+        merge_type: merge
+      when: post_switch_validation_result.passed
+      
+  post_tasks:
+    - name: Display blue-green deployment summary
+      debug:
+        msg:
+          - "Blue-Green deployment completed successfully!"
+          - "Active color: {{ new_color }}"
+          - "Inactive color: {{ current_color }}"
+          - "Version deployed: {{ app_version }}"
+          - "Deployment timestamp: {{ deployment_timestamp }}"
+          - "Switch validation: {{ 'PASSED' if post_switch_validation_result.passed else 'FAILED' }}"
+          
+    - name: Send deployment notification
+      uri:
+        url: "{{ vault_slack_webhook }}"
+        method: POST
+        body_format: json
+        body:
+          text: "🔄 TaskFlow Blue-Green Deployment Completed"
+          attachments:
+            - color: "{{ 'good' if post_switch_validation_result.passed else 'danger' }}"
+              title: "Blue-Green Deployment Summary"
+              fields:
+                - title: "Environment"
+                  value: "{{ environment }}"
+                  short: true
+                - title: "Active Color"
+                  value: "{{ new_color }}"
+                  short: true
+                - title: "Version"
+                  value: "{{ app_version }}"
+                  short: true
+                - title: "Status"
+                  value: "{{ 'SUCCESS' if post_switch_validation_result.passed else 'FAILED' }}"
+                  short: true
+                - title: "Validation"
+                  value: "{{ 'PASSED' if post_switch_validation_result.passed else 'FAILED' }}"
+                  short: false
+      when: 
+        - vault_slack_webhook is defined
+        - environment in ['staging', 'production']
+      ignore_errors: true
+      
+  rescue:
+    - name: Blue-Green deployment failed - initiating rollback
+      debug:
+        msg: "Blue-Green deployment failed. Initiating rollback..."
+        
+    - name: Rollback service to current color
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: "{{ app_name }}-service"
+            namespace: "{{ k8s_namespace }}"
+          spec:
+            selector:
+              app: "{{ app_name }}"
+              color: "{{ current_color }}"
+      when: rollback_on_failure
+      
+    - name: Scale down failed deployment
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: "{{ app_name }}-{{ new_color }}"
+            namespace: "{{ k8s_namespace }}"
+          spec:
+            replicas: 0
+      when: rollback_on_failure
+      
+    - name: Clean up failed deployment resources
+      kubernetes.core.k8s:
+        name: "{{ app_name }}-{{ new_color }}-service"
+        api_version: v1
+        kind: Service
+        namespace: "{{ k8s_namespace }}"
+        state: absent
+      ignore_errors: true
+      
+    - name: Send failure notification
+      uri:
+        url: "{{ vault_slack_webhook }}"
+        method: POST
+        body_format: json
+        body:
+          text: "❌ TaskFlow Blue-Green Deployment Failed"
+          attachments:
+            - color: "danger"
+              title: "Deployment Failure"
+              fields:
+                - title: "Environment"
+                  value: "{{ environment }}"
+                  short: true
+                - title: "Failed Color"
+                  value: "{{ new_color }}"
+                  short: true
+                - title: "Rollback Status"
+                  value: "{{ 'COMPLETED' if rollback_on_failure else 'MANUAL REQUIRED' }}"
+                  short: false
+      when: vault_slack_webhook is defined
+      ignore_errors: true
+      
+    - name: Fail the playbook
+      fail:
+        msg: "Blue-Green deployment failed and rollback completed"

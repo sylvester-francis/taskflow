@@ -1,0 +1,159 @@
+---
+# Main playbook for TaskFlow deployment
+- name: Deploy TaskFlow Application
+  hosts: all
+  gather_facts: true
+  vars:
+    deployment_timestamp: "{{ ansible_date_time.epoch }}"
+    
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg:
+          - "Deploying TaskFlow to {{ environment }} environment"
+          - "Target namespace: {{ k8s_namespace }}"
+          - "Container image: {{ container_image }}:{{ app_version }}"
+          - "Deployment timestamp: {{ deployment_timestamp }}"
+          
+    - name: Validate required variables
+      assert:
+        that:
+          - environment is defined
+          - k8s_namespace is defined
+          - container_image is defined
+        fail_msg: "Required variables not defined"
+        success_msg: "All required variables are defined"
+        
+  tasks:
+    - name: Create namespace
+      kubernetes.core.k8s:
+        name: "{{ k8s_namespace }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+        definition:
+          metadata:
+            labels:
+              environment: "{{ environment }}"
+              app: "{{ app_name }}"
+              managed-by: ansible
+              
+    - name: Deploy application using custom module
+      taskflow_deploy:
+        namespace: "{{ k8s_namespace }}"
+        image: "{{ container_image }}:{{ app_version }}"
+        replicas: "{{ deployment_replicas }}"
+        resources: "{{ resources }}"
+        environment: "{{ environment }}"
+        app_config: "{{ app_config }}"
+        health_check: "{{ health_check }}"
+        deployment_strategy: "{{ deployment_config.strategy }}"
+        wait_for_ready: true
+        wait_timeout: "{{ k8s_wait_timeout }}"
+      register: deployment_result
+      
+    - name: Display deployment status
+      debug:
+        var: deployment_result
+        
+    - name: Run security scan
+      security_scanner:
+        namespace: "{{ k8s_namespace }}"
+        image: "{{ container_image }}:{{ app_version }}"
+        tools: "{{ security_config.security_tools | default(['trivy', 'bandit']) }}"
+        fail_on_critical: "{{ security_config.fail_on_critical }}"
+        scan_on_deploy: "{{ security_config.scan_on_deploy }}"
+      register: security_scan_result
+      when: security_config.scan_on_deploy | default(false)
+      
+    - name: Setup monitoring
+      monitoring_config_manager:
+        namespace: "{{ k8s_namespace }}"
+        app_name: "{{ app_name }}"
+        monitoring_config: "{{ monitoring_config }}"
+        environment: "{{ environment }}"
+        prometheus_enabled: "{{ monitoring_config.prometheus.enabled }}"
+        grafana_enabled: "{{ monitoring_config.grafana.enabled }}"
+      register: monitoring_result
+      when: monitoring_config.prometheus.enabled | default(false)
+      
+    - name: Manage Kubernetes resources
+      k8s_app_manager:
+        namespace: "{{ k8s_namespace }}"
+        app_name: "{{ app_name }}"
+        operation: "deploy"
+        resources: "{{ resources }}"
+        hpa_enabled: "{{ hpa_enabled | default(false) }}"
+        hpa_config: "{{ hpa_config | default({}) }}"
+        ingress_config: "{{ ingress_config | default({}) }}"
+        backup_config: "{{ backup_config }}"
+      register: k8s_management_result
+      
+    - name: Validate infrastructure
+      infrastructure_validator:
+        namespace: "{{ k8s_namespace }}"
+        app_name: "{{ app_name }}"
+        environment: "{{ environment }}"
+        expected_replicas: "{{ deployment_replicas }}"
+        health_check_url: "http://{{ ingress_config.host | default('localhost') }}{{ health_check.path }}"
+        performance_thresholds:
+          response_time_ms: 200
+          cpu_usage_percent: 80
+          memory_usage_percent: 80
+        compliance_checks:
+          - security_context
+          - resource_limits
+          - health_checks
+          - network_policies
+      register: validation_result
+      
+  post_tasks:
+    - name: Display deployment summary
+      debug:
+        msg:
+          - "Deployment completed successfully"
+          - "Environment: {{ environment }}"
+          - "Namespace: {{ k8s_namespace }}"
+          - "Replicas: {{ deployment_replicas }}"
+          - "Image: {{ container_image }}:{{ app_version }}"
+          - "Timestamp: {{ deployment_timestamp }}"
+          - "Status: {{ deployment_result.status | default('unknown') }}"
+          
+    - name: Send deployment notification
+      uri:
+        url: "{{ vault_slack_webhook }}"
+        method: POST
+        body_format: json
+        body:
+          text: "TaskFlow deployment to {{ environment }} completed successfully"
+          attachments:
+            - color: good
+              title: "Deployment Summary"
+              fields:
+                - title: "Environment"
+                  value: "{{ environment }}"
+                  short: true
+                - title: "Namespace"
+                  value: "{{ k8s_namespace }}"
+                  short: true
+                - title: "Image"
+                  value: "{{ container_image }}:{{ app_version }}"
+                  short: false
+                - title: "Replicas"
+                  value: "{{ deployment_replicas }}"
+                  short: true
+                - title: "Status"
+                  value: "{{ deployment_result.status | default('Success') }}"
+                  short: true
+      when: 
+        - vault_slack_webhook is defined
+        - environment == "production"
+      ignore_errors: true
+      
+  handlers:
+    - name: Rollback deployment
+      taskflow_deploy:
+        namespace: "{{ k8s_namespace }}"
+        operation: "rollback"
+        rollback_revision: "{{ deployment_result.previous_revision | default(1) }}"
+      when: deployment_result.failed | default(false)

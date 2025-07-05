@@ -1,0 +1,50 @@
+---
+# Development environment specific configuration
+environment: development
+k8s_namespace: taskflow-dev
+k8s_context: k3d-taskflow-dev
+
+# Resource configuration for development
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "100m"
+    memory: "128Mi"
+
+# Deployment configuration
+deployment_replicas: 1
+hpa_enabled: false
+
+# Application configuration
+app_config:
+  debug: true
+  log_level: "DEBUG"
+  reload: true
+  
+# Database configuration
+database_config:
+  backup_enabled: false
+  
+# Security configuration - relaxed for development
+security_config:
+  fail_on_critical: false
+  scan_on_deploy: false
+  
+# Monitoring configuration
+monitoring_config:
+  prometheus:
+    retention_time: "3d"
+    scrape_interval: "1m"
+  grafana:
+    install_plugins: true
+    allow_embedding: true
+    
+# Ingress configuration
+ingress_config:
+  host: "taskflow-dev.local"
+  tls_enabled: false
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: web

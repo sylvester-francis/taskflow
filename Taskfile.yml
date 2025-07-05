@@ -1,0 +1,327 @@
+version: '3'
+
+vars:
+  APP_NAME: taskflow
+  REGISTRY: ghcr.io
+  IMAGE_NAME: "{{.REGISTRY}}/{{.USER}}/{{.APP_NAME}}"
+  VERSION: 
+    sh: git rev-parse --short HEAD
+  ENVIRONMENT: 
+    sh: echo "${ENVIRONMENT:-dev}"
+  NAMESPACE: "{{.APP_NAME}}-{{.ENVIRONMENT}}"
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list-all
+
+  # Development tasks
+  setup:
+    desc: Setup development environment
+    cmds:
+      - python -m venv venv
+      - source venv/bin/activate && pip install -r requirements.txt
+      - echo "Development environment setup complete!"
+
+  dev:
+    desc: Run application in development mode
+    cmds:
+      - source venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  test:
+    desc: Run tests with coverage
+    cmds:
+      - source venv/bin/activate && python -m pytest app/tests/ -v --cov=app --cov-report=html
+
+  test:watch:
+    desc: Run tests in watch mode
+    cmds:
+      - source venv/bin/activate && python -m pytest app/tests/ -v --cov=app -f
+
+  lint:
+    desc: Run code linting and formatting
+    cmds:
+      - source venv/bin/activate && black app/
+      - source venv/bin/activate && isort app/
+      - source venv/bin/activate && flake8 app/ --max-line-length=88 --extend-ignore=E203,W503
+
+  security:
+    desc: Run security scans
+    cmds:
+      - source venv/bin/activate && bandit -r app/ -f json -o bandit-report.json || true
+      - source venv/bin/activate && safety check --json --output safety-report.json || true
+      - echo "Security scan complete. Check bandit-report.json and safety-report.json"
+
+  # Docker tasks
+  build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t {{.IMAGE_NAME}}:{{.VERSION}} .
+      - docker tag {{.IMAGE_NAME}}:{{.VERSION}} {{.IMAGE_NAME}}:latest
+
+  push:
+    desc: Push Docker image to registry
+    deps: [build]
+    cmds:
+      - docker push {{.IMAGE_NAME}}:{{.VERSION}}
+      - docker push {{.IMAGE_NAME}}:latest
+
+  run:docker:
+    desc: Run application in Docker
+    deps: [build]
+    cmds:
+      - docker run -p 8000:8000 {{.IMAGE_NAME}}:latest
+
+  # Kubernetes tasks
+  k8s:setup:
+    desc: Setup K3s cluster
+    cmds:
+      - ./setup-k3s.sh
+
+  k8s:deploy:
+    desc: Deploy to Kubernetes
+    cmds:
+      - kubectl apply -f k8s/base/namespace.yaml
+      - kubectl apply -k k8s/overlays/{{.ENVIRONMENT}}/
+
+  k8s:status:
+    desc: Check Kubernetes deployment status
+    cmds:
+      - kubectl get pods,svc,ingress -n {{.NAMESPACE}}
+      - kubectl get events -n {{.NAMESPACE}} --sort-by='.lastTimestamp' | tail -10
+
+  k8s:logs:
+    desc: Show application logs
+    cmds:
+      - kubectl logs -l app.kubernetes.io/name={{.APP_NAME}} -n {{.NAMESPACE}} --tail=100 -f
+
+  k8s:port-forward:
+    desc: Port forward to local machine
+    cmds:
+      - kubectl port-forward svc/{{.APP_NAME}} 8080:80 -n {{.NAMESPACE}}
+
+  k8s:clean:
+    desc: Clean up Kubernetes resources
+    cmds:
+      - kubectl delete namespace {{.NAMESPACE}} --ignore-not-found=true
+
+  # Helm tasks
+  helm:lint:
+    desc: Lint Helm chart
+    cmds:
+      - helm lint helm/{{.APP_NAME}}/
+
+  helm:template:
+    desc: Render Helm templates
+    cmds:
+      - helm template {{.APP_NAME}} helm/{{.APP_NAME}}/ -f helm/{{.APP_NAME}}/values-{{.ENVIRONMENT}}.yaml
+
+  helm:install:
+    desc: Install with Helm
+    cmds:
+      - helm upgrade --install {{.APP_NAME}}-{{.ENVIRONMENT}} helm/{{.APP_NAME}}/ 
+        --namespace {{.NAMESPACE}} 
+        --create-namespace 
+        --values helm/{{.APP_NAME}}/values-{{.ENVIRONMENT}}.yaml 
+        --set image.tag={{.VERSION}}
+        --wait
+
+  helm:uninstall:
+    desc: Uninstall Helm release
+    cmds:
+      - helm uninstall {{.APP_NAME}}-{{.ENVIRONMENT}} --namespace {{.NAMESPACE}}
+
+  helm:upgrade:
+    desc: Upgrade Helm release
+    cmds:
+      - helm upgrade {{.APP_NAME}}-{{.ENVIRONMENT}} helm/{{.APP_NAME}}/ 
+        --namespace {{.NAMESPACE}} 
+        --values helm/{{.APP_NAME}}/values-{{.ENVIRONMENT}}.yaml 
+        --set image.tag={{.VERSION}}
+        --wait
+
+  # Ansible tasks
+  ansible:setup:
+    desc: Setup Ansible environment
+    cmds:
+      - pip install ansible kubernetes
+      - ansible-galaxy collection install kubernetes.core
+
+  ansible:deploy:
+    desc: Deploy with Ansible
+    cmds:
+      - cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/site.yml --limit {{.ENVIRONMENT}}
+
+  ansible:validate:
+    desc: Validate Ansible playbooks
+    cmds:
+      - cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/site.yml --check --diff --limit {{.ENVIRONMENT}}
+
+  # Monitoring tasks
+  monitoring:setup:
+    desc: Setup monitoring stack
+    cmds:
+      - kubectl apply -f k8s/monitoring/namespace.yaml
+      - kubectl apply -f k8s/monitoring/prometheus.yaml
+      - kubectl apply -f k8s/monitoring/grafana.yaml
+
+  monitoring:port-forward:
+    desc: Port forward monitoring services
+    cmds:
+      - echo "Prometheus: http://localhost:9090"
+      - echo "Grafana: http://localhost:3000 (admin/admin123)"
+      - kubectl port-forward -n taskflow-monitoring svc/prometheus 9090:9090 &
+      - kubectl port-forward -n taskflow-monitoring svc/grafana 3000:3000
+
+  monitoring:clean:
+    desc: Clean up monitoring stack
+    cmds:
+      - kubectl delete namespace taskflow-monitoring --ignore-not-found=true
+
+  # CI/CD tasks
+  ci:test:
+    desc: Run all CI checks locally
+    cmds:
+      - task: lint
+      - task: security
+      - task: test
+      - task: build
+
+  ci:validate:
+    desc: Validate CI/CD configuration
+    cmds:
+      - ./validate-cicd.sh
+
+  # Security tasks
+  security:scan:
+    desc: Run comprehensive security scan
+    cmds:
+      - echo "Running container security scan..."
+      - trivy image {{.IMAGE_NAME}}:{{.VERSION}} --severity HIGH,CRITICAL
+      - echo "Running source code security scan..."
+      - task: security
+
+  security:zap:
+    desc: Run OWASP ZAP scan
+    cmds:
+      - docker run -t owasp/zap2docker-stable zap-baseline.py -t http://host.docker.internal:8000
+
+  # Performance tasks
+  performance:test:
+    desc: Run performance tests
+    cmds:
+      - echo "Running basic performance test..."
+      - curl -o /dev/null -s -w "Response time: %{time_total}s\n" http://localhost:8000/docs
+
+  performance:load:
+    desc: Run load test with Apache Bench
+    cmds:
+      - ab -n 1000 -c 10 http://localhost:8000/docs
+
+  # Backup tasks
+  backup:create:
+    desc: Create database backup
+    cmds:
+      - kubectl exec -n {{.NAMESPACE}} deployment/{{.APP_NAME}}-{{.ENVIRONMENT}} -- cp /app/data/taskflow.db /tmp/backup-{{.VERSION}}.db
+      - kubectl cp {{.NAMESPACE}}/$(kubectl get pods -n {{.NAMESPACE}} -l app={{.APP_NAME}} -o jsonpath='{.items[0].metadata.name}'):/tmp/backup-{{.VERSION}}.db ./backup-{{.VERSION}}.db
+
+  backup:restore:
+    desc: Restore database backup
+    vars:
+      BACKUP_FILE: '{{.BACKUP_FILE | default "backup-latest.db"}}'
+    cmds:
+      - kubectl cp ./{{.BACKUP_FILE}} {{.NAMESPACE}}/$(kubectl get pods -n {{.NAMESPACE}} -l app={{.APP_NAME}} -o jsonpath='{.items[0].metadata.name}'):/tmp/restore.db
+      - kubectl exec -n {{.NAMESPACE}} deployment/{{.APP_NAME}}-{{.ENVIRONMENT}} -- cp /tmp/restore.db /app/data/taskflow.db
+
+  # Database tasks
+  db:migrate:
+    desc: Run database migrations
+    cmds:
+      - source venv/bin/activate && python -c "from app.backend.database import create_tables; create_tables()"
+
+  db:seed:
+    desc: Seed database with test data
+    cmds:
+      - echo "Database seeding not implemented yet"
+
+  # Cleanup tasks
+  clean:all:
+    desc: Clean up everything
+    cmds:
+      - task: k8s:clean
+      - task: monitoring:clean
+      - docker system prune -f
+      - rm -f *.db bandit-report.json safety-report.json
+
+  clean:docker:
+    desc: Clean up Docker resources
+    cmds:
+      - docker system prune -f
+      - docker rmi {{.IMAGE_NAME}}:{{.VERSION}} {{.IMAGE_NAME}}:latest || true
+
+  # Environment management
+  env:dev:
+    desc: Switch to development environment
+    cmds:
+      - export ENVIRONMENT=dev
+
+  env:staging:
+    desc: Switch to staging environment
+    cmds:
+      - export ENVIRONMENT=staging
+
+  env:prod:
+    desc: Switch to production environment
+    cmds:
+      - export ENVIRONMENT=prod
+
+  # Blue-Green deployment
+  deploy:blue-green:
+    desc: Perform blue-green deployment
+    cmds:
+      - echo "Starting blue-green deployment..."
+      - task: build
+      - task: push
+      - cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/blue-green-deploy.yml --limit {{.ENVIRONMENT}}
+
+  # Canary deployment
+  deploy:canary:
+    desc: Perform canary deployment
+    cmds:
+      - echo "Starting canary deployment..."
+      - task: build
+      - task: push
+      - cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/canary-deploy.yml --limit {{.ENVIRONMENT}}
+
+  # Health checks
+  health:check:
+    desc: Check application health
+    cmds:
+      - curl -f http://localhost:8000/docs || echo "Health check failed"
+      - kubectl get pods -n {{.NAMESPACE}} -l app={{.APP_NAME}}
+
+  # Documentation
+  docs:serve:
+    desc: Serve documentation locally
+    cmds:
+      - echo "Serving documentation at http://localhost:8000/docs"
+      - task: dev
+
+  docs:generate:
+    desc: Generate API documentation
+    cmds:
+      - echo "API documentation available at /docs endpoint when running"
+
+  # Quick start
+  quickstart:
+    desc: Quick start for new developers
+    cmds:
+      - echo "🚀 TaskFlow Quick Start"
+      - echo "1. Setting up environment..."
+      - task: setup
+      - echo "2. Running tests..."
+      - task: test
+      - echo "3. Starting development server..."
+      - echo "Visit http://localhost:8000 when ready!"
+      - task: dev

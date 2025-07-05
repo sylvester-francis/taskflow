@@ -1,0 +1,77 @@
+# ZAP Scanning Rules for TaskFlow
+# This file defines which security rules to ignore and which to enforce
+
+# Format: RULE_ID	THRESHOLD	IGNORE_PATHS
+# RULE_ID: ZAP rule identifier
+# THRESHOLD: IGNORE, WARN, or FAIL
+# IGNORE_PATHS: Comma-separated list of paths to ignore (optional)
+
+# Authentication related
+10010	WARN	# Cookie No HttpOnly Flag
+10011	WARN	# Cookie Without Secure Flag
+10012	FAIL	# Password Autocomplete in Browser
+10015	FAIL	# Incomplete or No Cache-control and Pragma HTTP Header Set
+10016	FAIL	# Web Browser XSS Protection Not Enabled
+10017	FAIL	# Cross-Domain JavaScript Source File Inclusion
+10020	FAIL	# X-Frame-Options Header Scanner
+10021	FAIL	# X-Content-Type-Options Header Missing
+
+# Application specific rules
+10023	FAIL	# Information Disclosure - Debug Error Messages
+10024	FAIL	# Information Disclosure - Sensitive Information in URL
+10025	FAIL	# Information Disclosure - Sensitive Information in HTTP Referrer Header
+10026	FAIL	# HTTP Parameter Override
+10027	FAIL	# Information Disclosure - Suspicious Comments
+
+# SQLi and Injection
+40008	FAIL	# Parameter Tampering
+40012	FAIL	# Cross Site Scripting (Reflected)
+40013	FAIL	# Session Fixation
+40014	FAIL	# Cross Site Scripting (Persistent)
+40016	FAIL	# Cross Site Scripting (Persistent) - Prime
+40017	FAIL	# Cross Site Scripting (Persistent) - Spider
+40018	FAIL	# SQL Injection
+40019	FAIL	# SQL Injection - MySQL
+40020	FAIL	# SQL Injection - Hypersonic SQL
+40021	FAIL	# SQL Injection - Oracle
+40022	FAIL	# SQL Injection - PostgreSQL
+
+# Directory traversal and file inclusion
+40023	FAIL	# Directory Browsing
+40024	FAIL	# SQL Injection - SQLite
+40025	FAIL	# SQL Injection - Hypersonic SQL
+40026	FAIL	# Cross Site Scripting (DOM Based)
+40027	FAIL	# SQL Injection - MsSQL
+40028	FAIL	# CRLF Injection
+
+# Information disclosure
+40029	FAIL	# Trace.axd Information Leak
+40030	FAIL	# Elmah Information Leak
+40032	FAIL	# .htaccess Information Leak
+40033	FAIL	# Loosely Scoped Cookie
+40034	FAIL	# Cloud Metadata Potentially Exposed
+40035	FAIL	# Hidden File Finder
+
+# Specific to FastAPI/Python applications
+90001	WARN	# Insecure JSF ViewState
+90011	WARN	# Charset Mismatch
+90020	WARN	# Source Code Disclosure - /WEB-INF folder
+90022	WARN	# Application Error Disclosure
+
+# API security
+90033	FAIL	# Loosely Scoped Cookie
+90034	FAIL	# Cloud Metadata Potentially Exposed
+
+# Ignore rules for development endpoints
+10009	IGNORE	/docs,/openapi.json	# In-Page Banner Information Leak
+10037	IGNORE	/docs,/openapi.json	# Server Leaks Information via "X-Powered-By" HTTP Response Header Field(s)
+10038	IGNORE	/docs,/openapi.json	# Content Security Policy (CSP) Header Not Set
+
+# Development/testing specific ignores
+10054	IGNORE	/docs	# Cookie without SameSite Attribute
+10055	IGNORE	/docs	# CSP Scanner
+10056	IGNORE	/docs	# X-Debug-Token Information Leak
+
+# Static content rules (more lenient)
+10049	WARN	/static	# Content Cacheability
+10050	WARN	/static	# Retrieved from Cache
