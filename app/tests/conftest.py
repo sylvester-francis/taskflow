@@ -1,6 +1,7 @@
 """
 Pytest configuration and shared fixtures
 """
+
 import os
 import tempfile
 
@@ -14,7 +15,6 @@ from app.backend.database import Base, get_db
 from app.backend.models import Task, User
 from app.main import app
 
-
 # Test database URL - use in-memory SQLite for speed
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
@@ -22,9 +22,7 @@ TEST_DATABASE_URL = "sqlite:///:memory:"
 @pytest.fixture(scope="session")
 def test_engine():
     """Create test database engine for the session"""
-    engine = create_engine(
-        TEST_DATABASE_URL, connect_args={"check_same_thread": False}
-    )
+    engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
     return engine
 
 
@@ -42,7 +40,7 @@ def db_session(test_engine, test_session_factory):
 
     # Create session
     session = test_session_factory()
-    
+
     try:
         yield session
     finally:
@@ -82,7 +80,7 @@ def sample_user_data():
     return {
         "username": "testuser",
         "email": "test@example.com",
-        "password": "testpassword123"
+        "password": "testpassword123",
     }
 
 
@@ -92,7 +90,7 @@ def sample_task_data():
     return {
         "title": "Test Task",
         "description": "This is a test task",
-        "priority": "medium"
+        "priority": "medium",
     }
 
 
@@ -131,7 +129,7 @@ def test_task(db_session, test_user, sample_task_data):
         title=sample_task_data["title"],
         description=sample_task_data["description"],
         priority=sample_task_data["priority"],
-        owner_id=test_user.id
+        owner_id=test_user.id,
     )
     db_session.add(task)
     db_session.commit()
@@ -147,7 +145,7 @@ def completed_task(db_session, test_user):
         description="This task is completed",
         priority="high",
         completed=True,
-        owner_id=test_user.id
+        owner_id=test_user.id,
     )
     db_session.add(task)
     db_session.commit()
@@ -165,16 +163,16 @@ def multiple_tasks(db_session, test_user):
             description=f"Description for task {i+1}",
             priority=["low", "medium", "high"][i % 3],
             completed=(i % 2 == 0),
-            owner_id=test_user.id
+            owner_id=test_user.id,
         )
         tasks.append(task)
-    
+
     db_session.add_all(tasks)
     db_session.commit()
-    
+
     for task in tasks:
         db_session.refresh(task)
-    
+
     return tasks
 
 
@@ -207,7 +205,7 @@ def temp_database_file():
     """Create temporary database file for file-based tests"""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
         db_path = tmp_file.name
-    
+
     try:
         yield db_path
     finally:
@@ -220,18 +218,10 @@ def temp_database_file():
 def pytest_configure(config):
     """Configure pytest settings"""
     # Add custom markers
-    config.addinivalue_line(
-        "markers", "integration: mark test as integration test"
-    )
-    config.addinivalue_line(
-        "markers", "slow: mark test as slow running"
-    )
-    config.addinivalue_line(
-        "markers", "auth: mark test as authentication related"
-    )
-    config.addinivalue_line(
-        "markers", "database: mark test as database related"
-    )
+    config.addinivalue_line("markers", "integration: mark test as integration test")
+    config.addinivalue_line("markers", "slow: mark test as slow running")
+    config.addinivalue_line("markers", "auth: mark test as authentication related")
+    config.addinivalue_line("markers", "database: mark test as database related")
 
 
 # Test environment cleanup
@@ -240,9 +230,9 @@ def clean_environment():
     """Clean environment variables for each test"""
     # Store original environment
     original_env = os.environ.copy()
-    
+
     yield
-    
+
     # Restore original environment
     os.environ.clear()
     os.environ.update(original_env)
@@ -262,13 +252,13 @@ def mock_external_api():
 def benchmark_database_operations():
     """Helper for benchmarking database operations"""
     import time
-    
+
     def benchmark(operation, *args, **kwargs):
         start_time = time.time()
         result = operation(*args, **kwargs)
         end_time = time.time()
         return result, end_time - start_time
-    
+
     return benchmark
 
 
@@ -276,19 +266,20 @@ def benchmark_database_operations():
 @pytest.fixture
 def simulate_database_error():
     """Helper for simulating database errors"""
+
     class DatabaseErrorSimulator:
         def __init__(self, session):
             self.session = session
             self.original_commit = session.commit
             self.error_on_next_commit = False
-        
+
         def enable_error(self):
             self.error_on_next_commit = True
-            
+
         def mock_commit(self):
             if self.error_on_next_commit:
                 self.error_on_next_commit = False
                 raise Exception("Simulated database error")
             return self.original_commit()
-    
+
     return DatabaseErrorSimulator

@@ -1,22 +1,23 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-try:
-    from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    USE_PASSLIB = True
-except ImportError:
-    # Fallback to direct bcrypt if passlib has issues
-    import bcrypt
-    pwd_context = None
-    USE_PASSLIB = False
 from sqlalchemy.orm import Session
 
 from app.backend.database import get_db
 from app.backend.models import TokenData, User
+
+try:
+    from passlib.context import CryptContext
+
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    USE_PASSLIB = True
+except ImportError:
+    # Fallback to direct bcrypt if passlib has issues
+    pwd_context = None
+    USE_PASSLIB = False
 
 SECRET_KEY = "your-secret-key-change-in-production"
 ALGORITHM = "HS256"
@@ -32,7 +33,10 @@ def verify_password(plain_password, hashed_password):
     else:
         # Direct bcrypt fallback
         import bcrypt
-        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
+        )
 
 
 def get_password_hash(password):
@@ -42,8 +46,9 @@ def get_password_hash(password):
     else:
         # Direct bcrypt fallback
         import bcrypt
+
         salt = bcrypt.gensalt()
-        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+        return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
 def get_user(db: Session, username: str):
@@ -62,9 +67,9 @@ def authenticate_user(db: Session, username: str, password: str):
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -103,16 +108,16 @@ async def get_current_user_from_cookie(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Could not validate credentials",
     )
-    
+
     # Get token from cookie
     token = request.cookies.get("access_token")
     if not token:
         raise credentials_exception
-    
+
     # Remove "Bearer " prefix if present
     if token.startswith("Bearer "):
         token = token[7:]
-    
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -121,7 +126,7 @@ async def get_current_user_from_cookie(
         token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    
+
     user = get_user(db, username=token_data.username)
     if user is None:
         raise credentials_exception

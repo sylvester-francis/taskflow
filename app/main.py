@@ -7,7 +7,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.backend.auth import authenticate_user, create_access_token, get_current_user, get_current_user_from_cookie
+from app.backend.auth import (
+    authenticate_user,
+    create_access_token,
+    get_current_user_from_cookie,
+)
 from app.backend.database import create_tables, get_db
 from app.backend.models import Task, User
 from app.backend.routes import router
@@ -50,26 +54,30 @@ async def htmx_register(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    from app.backend.auth import get_user, get_password_hash
-    
+    from app.backend.auth import get_password_hash, get_user
+
     # Check if user already exists
     db_user = get_user(db, username=username)
     if db_user:
         return templates.TemplateResponse(
-            "partials/error.html", {"request": request, "error": "Username already registered"}
+            "partials/error.html",
+            {"request": request, "error": "Username already registered"},
         )
-    
+
     # Create new user
     hashed_password = get_password_hash(password)
-    db_user = User(
-        username=username, email=email, hashed_password=hashed_password
-    )
+    db_user = User(username=username, email=email, hashed_password=hashed_password)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    
+
     return templates.TemplateResponse(
-        "partials/login_success.html", {"request": request, "username": db_user.username, "message": "Account created successfully! You can now login."}
+        "partials/login_success.html",
+        {
+            "request": request,
+            "username": db_user.username,
+            "message": "Account created successfully! You can now login.",
+        },
     )
 
 
